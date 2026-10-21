@@ -4,166 +4,100 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<title>김기사 주식 - 오늘의 선물 시황과 미국 연관주</title>
+<title>김기사 주식</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
-body{background:#fff8f0;color:#222}
-.header{background:#fff;border-bottom:1px solid #eee;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10}
-.logo{font-weight:900;font-size:20px} .logo span{color:#ff6b00}
-.live-badge{background:#00c950;color:#fff;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;animation:pulse 2s infinite}
-@keyframes pulse{0%{opacity:1}50%{opacity:.6}100%{opacity:1}}
-.container{max-width:1200px;margin:0 auto;padding:20px}
-.title{font-size:28px;font-weight:900;margin:20px 0 10px} .title b{color:#ff6b00}
-.sub{font-size:13px;color:#666;margin-bottom:20px;line-height:1.6;background:#fff;padding:12px;border-radius:10px;border:1px solid #ffe4cc}
-.indices{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px}
-.card{background:#fff;border:1px solid #eee;border-radius:12px;padding:14px}
-.card h3{font-size:13px;color:#666} .card .price{font-size:24px;font-weight:900;margin:6px 0}
-.card .chg{font-size:12px;padding:3px 8px;border-radius:10px;display:inline-block} .up{background:#e6f7ed;color:#0a7a2e} .down{background:#ffe6e6;color:#c00}
-.us-top{background:#222;color:#fff;padding:10px 14px;border-radius:10px;margin-bottom:16px;font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.us-top strong{color:#ffcc00}
-.table-head{background:#ff8c1a;color:#fff;padding:10px 14px;border-radius:10px 10px 0 0;display:flex;justify-content:space-between;font-size:12px;font-weight:700}
-.table{background:#fff;border:1px solid #eee;border-radius:0 0 12px 12px;overflow:hidden}
-.row{display:grid;grid-template-columns:110px 1fr 90px 70px 120px;gap:10px;padding:14px;border-bottom:1px solid #f5f5f5;align-items:center;font-size:13px}
+*{margin:0;padding:0;box-sizing:border-box;font-family: -apple-system, sans-serif}
+body{background:#f9f9f9;color:#222;font-size:14px}
+.header{background:#fff;border-bottom:1px solid #eee;padding:12px 20px;display:flex;justify-content:space-between;align-items:center}
+.logo{font-weight:700;font-size:16px}
+.container{max-width:1100px;margin:0 auto;padding:16px}
+.title{font-size:20px;font-weight:700;margin:16px 0 8px}
+.sub{font-size:12px;color:#666;margin-bottom:16px;background:#fff;padding:10px;border-radius:8px;border:1px solid #eee}
+.indices{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
+.card{background:#fff;border:1px solid #eee;border-radius:8px;padding:12px}
+.card h3{font-size:12px;color:#666} .card .price{font-size:18px;font-weight:700;margin:4px 0}
+.card .chg{font-size:11px}
+.us-top{background:#333;color:#fff;padding:8px 12px;border-radius:8px;margin-bottom:12px;font-size:12px}
+.table-head{background:#ff8c1a;color:#fff;padding:10px 12px;border-radius:8px 8px 0 0;display:grid;grid-template-columns:120px 1fr 80px 80px;font-size:12px}
+.table{background:#fff;border:1px solid #eee;border-radius:0 0 8px 8px}
+.row{display:grid;grid-template-columns:120px 1fr 80px 80px;gap:8px;padding:12px;border-bottom:1px solid #f2f2f2;align-items:center;font-size:12px}
 .row:last-child{border:none}
-.row:hover{background:#fffaf5}
-.stock-name{font-weight:800} .code{font-size:11px;color:#888}
-.tag{background:#fff1e0;color:#ff6b00;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;display:inline-block;margin:2px}
-.tag.live{background:#e6f7ed;color:#0a7a2e}
-.score{width:50px;height:8px;background:#eee;border-radius:4px;overflow:hidden;display:inline-block} .score div{height:100%;background:#ff8c1a}
-.refresh{position:fixed;bottom:20px;right:20px;background:#ff6b00;color:#fff;border:none;padding:12px 18px;border-radius:30px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.2)}
-@media(max-width:700px){.indices{grid-template-columns:1fr}.row{grid-template-columns:1fr 1fr;font-size:12px}.row div:nth-child(3),.row div:nth-child(4){display:none}}
+.tag{background:#fff1e0;color:#ff6b00;padding:2px 6px;border-radius:10px;font-size:10px;display:inline-block}
+.badge{font-size:10px;color:#666}
 </style>
 </head>
 <body>
 <div class="header">
-  <div class="logo">김 <span>김기사 주식</span></div>
-  <div style="display:flex;gap:8px;align-items:center">
-    <div class="live-badge" id="liveBadge">● LIVE 확인중...</div>
-    <div style="font-size:11px;color:#666" id="kstTime"></div>
-  </div>
+  <div class="logo">김기사 주식</div>
+  <div style="font-size:11px;color:#666"><span id="liveBadge">LIVE</span> <span id="kstTime"></span></div>
 </div>
 
 <div class="container">
-  <div class="title">오늘의 선물 시황과 <b>미국 연관주</b></div>
-  <div class="sub" id="subText">
-    Finnhub LIVE로 미국 시장 실시간 연동 중... 잠시만 기다려주세요. 매일 미국 급등 테마 → 한국 종목 8개가 바뀝니다.
+  <div class="title">오늘의 선물 시황과 미국 연관주</div>
+  <div class="sub" id="subText">로딩중...</div>
+
+  <div class="indices">
+    <div class="card"><h3>S&P500</h3><div class="price" id="spyPrice">-</div><div class="chg" id="spyChg">-</div></div>
+    <div class="card"><h3>나스닥</h3><div class="price" id="qqqPrice">-</div><div class="chg" id="qqqChg">-</div></div>
+    <div class="card"><h3>KOSPI(EWY)</h3><div class="price" id="ewyPrice">-</div><div class="chg" id="ewyChg">-</div></div>
   </div>
 
-  <div class="indices" id="indices">
-    <div class="card"><h3>S&P500 선물</h3><div class="price" id="spyPrice">-</div><div class="chg" id="spyChg">로딩중</div></div>
-    <div class="card"><h3>나스닥 선물</h3><div class="price" id="qqqPrice">-</div><div class="chg" id="qqqChg">로딩중</div></div>
-    <div class="card"><h3>KOSPI 선물</h3><div class="price" id="ewyPrice">-</div><div class="chg" id="ewyChg">로딩중</div></div>
-  </div>
-
-  <div class="us-top" id="usTop">🇺🇸 미국 발 TOP 테마 로딩중...</div>
+  <div class="us-top" id="usTop">미국 테마 로딩중...</div>
 
   <div class="table-head">
-    <div>종목 / 현재가</div><div>관련 테마 / 미국 연관</div><div>기술적(50)</div><div>수급(50)</div><div>미국 연관 점수</div>
+    <div>종목 / 테마</div><div>관련 테마</div><div>기술적</div><div>수급</div>
   </div>
   <div class="table" id="stockTable">
-    <div style="padding:30px;text-align:center;color:#888">Finnhub LIVE 데이터 불러오는 중...<br>5초만 기다려주세요</div>
+    <div style="padding:20px;text-align:center;color:#888">데이터 불러오는 중...</div>
   </div>
 </div>
 
-<button class="refresh" onclick="loadAll(true)">↻ 오늘 데이터 새로고침</button>
-
 <script>
-async function loadAll(force=false){
-  const now = new Date();
-  document.getElementById('kstTime').innerText = now.toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}) + ' KST';
-  
+async function loadAll(){
+  document.getElementById('kstTime').innerText = new Date().toLocaleString('ko-KR',{timeZone:'Asia/Seoul'});
   try{
-    // 캐시 방지: timestamp 매번 다르게
-    const url = `/api/analysis?trigger=true&t=${Date.now()}${force?'&force=1':''}`;
-    const res = await fetch(url, { cache: 'no-store', headers:{'Pragma':'no-cache'} });
+    const res = await fetch(`/api/analysis?trigger=true&t=${Date.now()}`, {cache:'no-store'});
     const data = await res.json();
     
-    console.log('오늘 데이터:', data);
-
-    // 상단 배지
-    document.getElementById('liveBadge').innerText = `● ${data.source} ${data.date}`;
-    document.getElementById('subText').innerHTML = 
-      `실시간 LIVE - 전일 종가 대비 프리미엄 ${new Date().toLocaleTimeString()} KST 갱신 - ${data.date} - Finnhub ${data.source} - `+
-      `미국 뉴스 3줄: ${data.newsSample?.slice(0,120)}... <br> `+
-      `🇺🇸 감지된 미국 테마: <b>${(data.usThemes||[]).join(', ')}</b> → 한국 ${data.themes?.length||0}종목 추천 (매일 바뀜)`;
-
-    // 선물 시황
+    document.getElementById('liveBadge').innerText = data.date + ' ' + data.source;
+    document.getElementById('subText').innerText = data.date + ' | ' + (data.usThemes||[]).join(', ') + ' | ' + (data.newsSample||'').slice(0,150);
+    
     const q = data.quotes || {};
-    function setIdx(idPrice, idChg, sym){
+    function setPrice(idP, idC, sym){
       const d = q[sym];
       if(!d) return;
-      document.getElementById(idPrice).innerText = d.c ? d.c.toFixed(2) : '-';
-      const el = document.getElementById(idChg);
-      el.innerText = (d.dp>0?'+':'') + (d.dp?.toFixed(2)||0) + '% LIVE';
-      el.className = 'chg ' + (d.dp>=0 ? 'up' : 'down');
+      document.getElementById(idP).innerText = d.c ? d.c.toFixed(2) : '-';
+      document.getElementById(idC).innerText = (d.dp>0?'+':'') + (d.dp||0).toFixed(2) + '%';
     }
-    setIdx('spyPrice','spyChg','SPY');
-    setIdx('qqqPrice','qqqChg','QQQ');
-    setIdx('ewyPrice','ewyChg','EWY');
-    // EWY 없으면 KOSPI로 표시
-    if(!q.EWY && q.SPY){
-      document.getElementById('ewyPrice').innerText = (q.SPY.c * 0.2).toFixed(2);
-    }
+    setPrice('spyPrice','spyChg','SPY');
+    setPrice('qqqPrice','qqqChg','QQQ');
+    setPrice('ewyPrice','ewyChg','EWY');
 
-    // 미국 TOP
-    const top = data.themes?.slice(0,4).map(t=> `${t.theme} ${(t.usChange||0)>0?'+':''}${(t.usChange||0).toFixed(1)}%`).join(' / ') || '';
-    document.getElementById('usTop').innerHTML = 
-      `🚀 <strong>전날 미국 변신종 TOP:</strong> ${top} &nbsp; | &nbsp; 미국 발: ${(data.usThemes||[]).join(', ')} → 한국 테마 매핑`;
+    document.getElementById('usTop').innerText = '미국 발: ' + (data.usThemes||[]).join(', ') + ' → 한국';
 
-    // 테이블
     const table = document.getElementById('stockTable');
     table.innerHTML = '';
-    
-    // 중복 제거 (코드로 한 번 더)
     const seen = new Set();
-    const unique = [];
-    for(const t of (data.themes||[])){
-      if(!seen.has(t.code)){ unique.push(t); seen.add(t.code); }
-    }
-
-    for(const s of unique){
+    for(const s of (data.themes||[])){
+      if(seen.has(s.code)) continue;
+      seen.add(s.code);
       const row = document.createElement('div');
       row.className = 'row';
       row.innerHTML = `
-        <div>
-          <div class="stock-name">${s.name}</div>
-          <div class="code">${s.code} · ${s.theme}</div>
-          <div style="margin-top:4px"><span class="tag">${s.theme}</span> <span class="tag live">LIVE</span></div>
-        </div>
-        <div>
-          <span class="tag">${s.theme} +${Math.floor(s.score||80)}% → ${s.usSource||'US'}</span><br>
-          <span style="font-size:11px;color:#666">미국 ${s.usSource||''} ${(s.usChange||0)>0?'+':''}${(s.usChange||0).toFixed(1)}% 연관 / HBM ${s.code} 공급망 지속, 전날 미국 ${s.usSource||''} 5.1% 변동성 반영</span><br>
-          <span class="tag live">${s.etf||'NVDA'} ${(s.usChange||0).toFixed(2)}% LIVE</span>
-        </div>
-        <div><div class="score"><div style="width:${(s.score||70)%100}%"></div></div> ${Math.floor((s.score||70)/2)}</div>
-        <div><div class="score"><div style="width:${(s.score||70)%100}%"></div></div> ${Math.floor((s.score||70)/2)}</div>
-        <div><div class="score" style="width:60px"><div style="width:${s.score||70}%"></div></div> <b>${s.score||70}</b><br><span style="font-size:10px;color:#666">미국 ${s.usSource} 소부장<br>전날 미국 소부장 등</span></div>
+        <div><b>${s.name}</b><br><span class="badge">${s.code} ${s.theme}</span></div>
+        <div><span class="tag">${s.usSource||''} ${s.etf||''} ${(s.usChange||0).toFixed(1)}%</span><br><span class="badge">${s.theme}</span></div>
+        <div>${Math.floor((s.score||70)/2)}</div>
+        <div>${Math.floor((s.score||70)/2)}</div>
       `;
-      row.onclick = ()=> window.open(`https://m.stock.naver.com/domestic/stock/${s.code}/total`, '_blank');
+      row.onclick = ()=> window.open('https://m.stock.naver.com/domestic/stock/'+s.code+'/total','_blank');
       table.appendChild(row);
     }
-
-    if(unique.length===0){
-      table.innerHTML = '<div style="padding:20px;text-align:center">데이터 없음 - /api/analysis 확인</div>';
-    }
-
   }catch(e){
-    console.error(e);
-    document.getElementById('stockTable').innerHTML = `<div style="padding:20px;color:red">에러: ${e.message}<br>개발자도구(F12) 콘솔 확인</div>`;
-    document.getElementById('liveBadge').innerText = '● 에러 - 재시도중';
-    setTimeout(()=>loadAll(), 3000);
+    document.getElementById('stockTable').innerHTML = '에러: '+e.message;
   }
 }
-
-// 첫 로드 + 5분마다 자동 리프레시
 loadAll();
-setInterval(()=>loadAll(), 5*60*1000);
-
-// 30초마다 시계만 갱신
-setInterval(()=>{
-  document.getElementById('kstTime').innerText = new Date().toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}) + ' KST';
-}, 1000);
+setInterval(loadAll, 300000);
 </script>
 </body>
 </html>
