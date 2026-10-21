@@ -70,10 +70,24 @@ export default async function handler(req, res) {
     usThemes = [...new Set(usThemes)].slice(0,8);
 
     // 매핑
-    let themes = usThemes.map((t, i) => {
+    // themes 채우는 부분을 이걸로 교체
+    let themes = [];
+    const usedCodes = new Set();
+    for (const t of usThemes) {
       const m = US_TO_KR[t] || US_TO_KR['AI'];
-      return { ...m, score: 95 - i*2, usSource: t, rank: i+1 };
-    });
+      if (!usedCodes.has(m.code)) {
+        themes.push({ ...m, score: 95 - themes.length*2, usSource: t, rank: themes.length+1 });
+        usedCodes.add(m.code);
+      }
+    }
+    // 부족하면 fallback에서 중복 없이 채우기
+    for (const f of fallback) {
+      if (themes.length >= 8) break;
+      if (!usedCodes.has(f.code)) {
+        themes.push({ ...f, rank: themes.length+1 });
+        usedCodes.add(f.code);
+      }
+    }
 
     // 8개 채우기
     while (themes.length < 8) themes.push(...fallback.slice(themes.length, themes.length+1));
