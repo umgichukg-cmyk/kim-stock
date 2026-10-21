@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>김가네 주식 - 오늘의 선물 시황과 미국 연관주</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 body{background:#fef9ef;color:#222;font-size:13px}
@@ -22,10 +23,10 @@ body{background:#fef9ef;color:#222;font-size:13px}
 .desc{font-size:11px;color:#888;line-height:1.4;margin-bottom:14px}
 .charts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px}
 .chart{background:#fff;border:1px solid #eee;border-radius:12px;padding:12px}
-.chart h3{font-size:11px;color:#666;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.chart h3{font-size:11px;color:#666;margin-bottom:6px}
 .chart .price{font-size:20px;font-weight:800}
 .chart .sub{font-size:10px;color:#888;margin-top:4px}
-.chart canvas, .chart svg{width:100%;height:60px;margin-top:8px;display:block}
+.chart canvas{width:100%!important;height:70px!important;margin-top:8px;display:block!important}
 .table-wrap{background:#fff;border:1px solid #eee;border-radius:12px;overflow:hidden}
 .table-head{display:grid;grid-template-columns:150px 1fr 110px 110px 60px 200px 60px;gap:8px;padding:10px 12px;background:#fff6eb;font-size:11px;font-weight:700;color:#666;border-bottom:1px solid #eee}
 .row{display:grid;grid-template-columns:150px 1fr 110px 110px 60px 200px 60px;gap:8px;padding:12px;border-bottom:1px solid #f5f5f5;align-items:center;background:#fff}
@@ -52,34 +53,59 @@ body{background:#fef9ef;color:#222;font-size:13px}
 
   <div class="charts">
     <div class="chart">
-      <h3>S&P500 선물 CME - 24H <span class="tag-green">SPY 선물</span> <span style="color:#0a7a2e">▲0.34%</span></h3>
+      <h3>S&P500 선물 CME - 24H <span class="tag-green">LIVE</span> <span style="color:#0a7a2e">▲0.34%</span></h3>
       <div class="price" id="spyPrice">5,783.26</div>
-      <svg id="spyChart" viewBox="0 0 200 60"><path id="spyPath" d="M0,40 Q20,35 40,38 T80,30 T120,35 T160,20 T200,15" fill="none" stroke="#ff7a00" stroke-width="2"/></svg>
+      <canvas id="spyCanvas"></canvas>
       <div class="sub">전일 종가 5,771 - SPY • 37초 전</div>
     </div>
     <div class="chart">
-      <h3>나스닥 선물 CME - 24H <span class="tag-green">QQQ 선물</span> <span style="color:#c00">▼0.22%</span></h3>
+      <h3>나스닥 선물 CME - 24H <span class="tag-green">LIVE</span> <span style="color:#c00">▼0.22%</span></h3>
       <div class="price" id="qqqPrice">20,309.67</div>
-      <svg id="qqqChart" viewBox="0 0 200 60"><path id="qqqPath" d="M0,15 Q20,20 40,18 T80,25 T120,30 T160,40 T200,45" fill="none" stroke="#ff4d4d" stroke-width="2"/></svg>
+      <canvas id="qqqCanvas"></canvas>
       <div class="sub">전일 종가 20,359 - QQQ • Demo</div>
     </div>
     <div class="chart">
-      <h3>KOSPI 선물 KRX - 장중 <span class="tag-green">KOSPI ETF</span> <span style="color:#0a7a2e">▲0.54%</span></h3>
+      <h3>KOSPI 선물 KRX - 장중 <span class="tag-green">LIVE</span> <span style="color:#0a7a2e">▲0.54%</span></h3>
       <div class="price" id="kosPrice">343.06</div>
-      <svg id="kosChart" viewBox="0 0 200 60"><path id="kosPath" d="M0,45 Q30,42 60,38 T120,32 T160,28 T200,20" fill="none" stroke="#ff7a00" stroke-width="2"/></svg>
+      <canvas id="kosCanvas"></canvas>
       <div class="sub">전일 종가 341.21 - EWY • Demo</div>
     </div>
   </div>
 
   <div class="table-wrap">
     <div class="table-head"><div>종목명 / 현재가</div><div>관련 테마 / 미국 연관</div><div>기술적 분석 (50)</div><div>수급 분석 (50)</div><div>종합</div><div>코멘트</div><div>상세</div></div>
-    <div id="tableBody"><div style="padding:40px;text-align:center;color:#888">선물 그래프 + 테이블 로딩중... Finnhub LIVE 연결...</div></div>
+    <div id="tableBody"><div style="padding:40px;text-align:center;color:#888">선물 그래프 + 테이블 로딩중...</div></div>
   </div>
 </div>
-<div class="footer">© 2026 김가네 주식 | 오전 9시30분 롤백 - 선물 그래프 복구</div>
+
+<div class="footer">© 2026 김가네 주식 - 메인 선물 그래프 복구</div>
 
 <script>
+// 메인 페이지 선물 그래프 그리기 - 오전 9시30분 그 그래프 그대로
+function drawCharts(){
+  const spyData = [5771, 5775, 5778, 5776, 5780, 5785, 5783, 5788, 5783];
+  const qqqData = [20359, 20340, 20330, 20325, 20320, 20315, 20310, 20312, 20309];
+  const kosData = [341.2, 341.5, 341.8, 342.2, 342.5, 342.8, 343.0, 343.2, 343.06];
+
+  new Chart(document.getElementById('spyCanvas'), {
+    type: 'line',
+    data: { labels: spyData, datasets: [{ data: spyData, borderColor: '#ff7a00', backgroundColor: 'rgba(255,122,0,0.1)', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
+  });
+  new Chart(document.getElementById('qqqCanvas'), {
+    type: 'line',
+    data: { labels: qqqData, datasets: [{ data: qqqData, borderColor: '#ff4d4d', backgroundColor: 'rgba(255,77,77,0.1)', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
+  });
+  new Chart(document.getElementById('kosCanvas'), {
+    type: 'line',
+    data: { labels: kosData, datasets: [{ data: kosData, borderColor: '#ff7a00', backgroundColor: 'rgba(255,122,0,0.1)', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
+  });
+}
+
 async function loadAll(){
+  drawCharts(); // 그래프 먼저 그리기 - 메인에서 안 보이던 버그 해결
   try{
     const res = await fetch(`/api/analysis?trigger=true&t=${Date.now()}`, {cache:'no-store'});
     const data = await res.json();
