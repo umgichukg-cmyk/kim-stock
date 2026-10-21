@@ -29,13 +29,15 @@ body{background:#fef9ef;color:#222;font-size:13px}
 .chart canvas{width:100%!important;height:70px!important;margin-top:8px;display:block!important}
 .table-wrap{background:#fff;border:1px solid #eee;border-radius:12px;overflow:hidden}
 .table-head{display:grid;grid-template-columns:150px 1fr 110px 110px 60px 200px 60px;gap:8px;padding:10px 12px;background:#fff6eb;font-size:11px;font-weight:700;color:#666;border-bottom:1px solid #eee}
-.row{display:grid;grid-template-columns:150px 1fr 110px 110px 60px 200px 60px;gap:8px;padding:12px;border-bottom:1px solid #f5f5f5;align-items:center;background:#fff}
+.row{display:grid;grid-template-columns:150px 1fr 110px 110px 60px 200px 60px;gap:8px;padding:12px;border-bottom:1px solid #f5f5f5;align-items:center;background:#fff;cursor:pointer;transition:background 0.15s}
+.row:hover{background:#fff4e0!important}
+.row:active{background:#ffe8c0!important}
 .tag-orange{background:#fff1e0;color:#ff7a00;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block}
 .tag-green{background:#e6f7ed;color:#0a7a2e;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block}
 .bar{width:60px;height:6px;background:#eee;border-radius:3px;display:inline-block;overflow:hidden;vertical-align:middle}
 .bar div{height:100%;background:#ff9a3c}
 .score{background:#fff1e0;color:#ff7a00;padding:5px 10px;border-radius:12px;font-weight:800;font-size:12px;display:inline-block}
-.view-btn{border:1px solid #eee;padding:5px 12px;border-radius:20px;font-size:11px;color:#666;text-decoration:none;background:#fff;display:inline-block}
+.view-btn{border:1px solid #eee;padding:5px 12px;border-radius:20px;font-size:11px;color:#666;text-decoration:none;background:#fff;display:inline-block;pointer-events:none}
 .footer{padding:16px;text-align:center;font-size:10px;color:#aaa}
 </style>
 </head>
@@ -60,80 +62,5 @@ body{background:#fef9ef;color:#222;font-size:13px}
     </div>
     <div class="chart">
       <h3>나스닥 선물 CME - 24H <span class="tag-green">LIVE</span> <span style="color:#c00">▼0.22%</span></h3>
-      <div class="price" id="qqqPrice">20,309.67</div>
-      <canvas id="qqqCanvas"></canvas>
-      <div class="sub">전일 종가 20,359 - QQQ • Demo</div>
-    </div>
-    <div class="chart">
-      <h3>KOSPI 선물 KRX - 장중 <span class="tag-green">LIVE</span> <span style="color:#0a7a2e">▲0.54%</span></h3>
-      <div class="price" id="kosPrice">343.06</div>
-      <canvas id="kosCanvas"></canvas>
-      <div class="sub">전일 종가 341.21 - EWY • Demo</div>
-    </div>
-  </div>
-
-  <div class="table-wrap">
-    <div class="table-head"><div>종목명 / 현재가</div><div>관련 테마 / 미국 연관</div><div>기술적 분석 (50)</div><div>수급 분석 (50)</div><div>종합</div><div>코멘트</div><div>상세</div></div>
-    <div id="tableBody"><div style="padding:40px;text-align:center;color:#888">선물 그래프 + 테이블 로딩중...</div></div>
-  </div>
-</div>
-
-<div class="footer">© 2026 김가네 주식 - 메인 선물 그래프 복구</div>
-
-<script>
-// 메인 페이지 선물 그래프 그리기 - 오전 9시30분 그 그래프 그대로
-function drawCharts(){
-  const spyData = [5771, 5775, 5778, 5776, 5780, 5785, 5783, 5788, 5783];
-  const qqqData = [20359, 20340, 20330, 20325, 20320, 20315, 20310, 20312, 20309];
-  const kosData = [341.2, 341.5, 341.8, 342.2, 342.5, 342.8, 343.0, 343.2, 343.06];
-
-  new Chart(document.getElementById('spyCanvas'), {
-    type: 'line',
-    data: { labels: spyData, datasets: [{ data: spyData, borderColor: '#ff7a00', backgroundColor: 'rgba(255,122,0,0.1)', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
-  });
-  new Chart(document.getElementById('qqqCanvas'), {
-    type: 'line',
-    data: { labels: qqqData, datasets: [{ data: qqqData, borderColor: '#ff4d4d', backgroundColor: 'rgba(255,77,77,0.1)', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
-  });
-  new Chart(document.getElementById('kosCanvas'), {
-    type: 'line',
-    data: { labels: kosData, datasets: [{ data: kosData, borderColor: '#ff7a00', backgroundColor: 'rgba(255,122,0,0.1)', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
-  });
-}
-
-async function loadAll(){
-  drawCharts(); // 그래프 먼저 그리기 - 메인에서 안 보이던 버그 해결
-  try{
-    const res = await fetch(`/api/analysis?trigger=true&t=${Date.now()}`, {cache:'no-store'});
-    const data = await res.json();
-    if(data.quotes?.SPY) document.getElementById('spyPrice').innerHTML = `${data.quotes.SPY.c.toFixed(2)} <span style="font-size:12px;color:#0a7a2e">+${data.quotes.SPY.dp.toFixed(2)}% LIVE</span>`;
-    if(data.quotes?.QQQ) document.getElementById('qqqPrice').innerHTML = `${data.quotes.QQQ.c.toFixed(2)} <span style="font-size:12px;color:#c00">${data.quotes.QQQ.dp.toFixed(2)}% LIVE</span>`;
-    if(data.quotes?.EWY) document.getElementById('kosPrice').innerHTML = `${data.quotes.EWY.c.toFixed(2)} <span style="font-size:12px;color:#0a7a2e">${data.quotes.EWY.dp.toFixed(2)}% LIVE</span>`;
-
-    const body = document.getElementById('tableBody');
-    body.innerHTML = '';
-    const seen = new Set();
-    for(const s of (data.themes||[])){
-      if(seen.has(s.code)) continue;
-      seen.add(s.code);
-      if(seen.size>8) break;
-      const row = document.createElement('div');
-      row.className = 'row';
-      row.innerHTML = `<div><div style="font-weight:700">${s.name}</div><div style="font-size:10px;color:#999">${s.code} ₩${s.code}</div><div id="sup-${s.code}" style="margin-top:4px"><span class="tag-orange">수급 로딩중...</span></div></div><div><span class="tag-orange">${s.theme} +${(s.usChange||4.2).toFixed(1)}% → ${s.etf}</span><br><span class="tag-green">${s.etf} ${(s.usChange||1.5).toFixed(2)}% LIVE</span></div><div><div class="bar"><div style="width:70%"></div></div> 39</div><div><div class="bar"><div style="width:65%"></div></div> 38</div><div><span class="score">${Math.floor(s.score||77)}</span></div><div style="font-size:10px;color:#666">미국 ${s.etf} 연관 ${s.theme}</div><div><a class="view-btn" href="/detail.html?code=${s.code}">보기 →</a></div>`;
-      body.appendChild(row);
-      fetch(`/api/naver?code=${s.code}&t=${Date.now()}`, {cache:'no-store'}).then(r=>r.json()).then(n=>{
-        const el=document.getElementById(`sup-${s.code}`);
-        if(el) el.innerHTML=`<span class="tag-orange">외국인 ${n.foreign||'+3.9%'}</span>`;
-      }).catch(()=>{});
-    }
-  }catch(e){
-    document.getElementById('tableBody').innerHTML = `<div style="padding:20px">에러: ${e.message}</div>`;
-  }
-}
-loadAll();
-</script>
-</body>
+      <div class="price" id
 </html>
