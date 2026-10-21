@@ -6,20 +6,20 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>김가네 주식 - 오늘의 선물 시황과 미국 연관주</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 body{background:#fef9ef;color:#222;font-size:13px}
-.header{height:52px;background:#fff;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:20}
-.logo{display:flex;align-items:center;gap:8px;font-weight:800}
-.logo-icon{width:28px;height:28px;background:#ff7a00;color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.header{height:52px;background:#fff;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:10}
+.logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px}
+.logo-icon{width:28px;height:28px;background:#ff7a00;color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center}
 .nav{display:flex;gap:6px}
 .nav a{padding:6px 12px;border-radius:20px;font-size:12px;text-decoration:none;color:#666;background:#f5f5f5}
 .nav a.active{background:#222;color:#fff}
 .container{max-width:1280px;margin:0 auto;padding:12px 16px}
-.live-top{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#666;background:#fff;border:1px solid #eee;padding:4px 10px;border-radius:20px;margin-bottom:8px}
-.title{font-size:22px;font-weight:900;margin:6px 0 8px}
+.live-top{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#555;background:#fff;border:1px solid #e8e8e8;padding:6px 12px;border-radius:20px;margin-bottom:10px}
+.title{font-size:22px;font-weight:900;margin:8px 0}
 .title span{color:#ff7a00}
-.black-bar{background:#222;color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:8px}
-.desc{font-size:11px;color:#888;line-height:1.4;margin-bottom:12px}
+.black-bar{background:#222;color:#fff;padding:8px 14px;border-radius:8px;font-size:12px;margin-bottom:8px}
+.desc{font-size:11px;color:#888;line-height:1.4;margin-bottom:14px}
 .charts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px}
 .chart{background:#fff;border:1px solid #eee;border-radius:12px;padding:12px}
 .chart h3{font-size:11px;color:#666}
@@ -27,13 +27,12 @@ body{background:#fef9ef;color:#222;font-size:13px}
 .table-wrap{background:#fff;border:1px solid #eee;border-radius:12px;overflow:hidden}
 .table-head{display:grid;grid-template-columns:150px 1fr 110px 110px 60px 200px 60px;gap:8px;padding:10px 12px;background:#fff6eb;font-size:11px;font-weight:700;color:#666;border-bottom:1px solid #eee}
 .row{display:grid;grid-template-columns:150px 1fr 110px 110px 60px 200px 60px;gap:8px;padding:12px;border-bottom:1px solid #f5f5f5;align-items:center;background:#fff}
-.name{font-weight:700;font-size:12px}
 .tag-orange{background:#fff1e0;color:#ff7a00;padding:3px 7px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block}
 .tag-green{background:#e6f7ed;color:#0a7a2e;padding:3px 7px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block}
-.bar{width:60px;height:6px;background:#eee;border-radius:3px;display:inline-block;vertical-align:middle;overflow:hidden}
+.bar{width:60px;height:6px;background:#eee;border-radius:3px;display:inline-block;overflow:hidden}
 .bar div{height:100%;background:#ff9a3c}
-.score{font-weight:700;font-size:12px;background:#fff1e0;color:#ff7a00;padding:4px 10px;border-radius:12px;display:inline-block}
-.view-btn{border:1px solid #eee;padding:4px 10px;border-radius:20px;font-size:11px;color:#666;text-decoration:none;display:inline-block;background:#fff}
+.score{background:#fff1e0;color:#ff7a00;padding:4px 10px;border-radius:12px;font-weight:700;font-size:12px}
+.view-btn{border:1px solid #eee;padding:4px 10px;border-radius:20px;font-size:11px;color:#666;text-decoration:none;background:#fff}
 .footer{padding:16px;text-align:center;font-size:10px;color:#aaa}
 </style>
 </head>
@@ -42,6 +41,56 @@ body{background:#fef9ef;color:#222;font-size:13px}
   <div class="logo"><div class="logo-icon">김</div> 김가네 주식 KIMGISA STOCK</div>
   <div class="nav"><a href="#">개요</a><a href="#">선물시황</a><a href="#" class="active">종목분석</a><a href="#">알림</a><a href="#">API 설정</a></div>
 </div>
+
 <div class="container">
-  <div class="live-top" id="liveTop">● 실시간 LIVE - 기준: 전일 종가 대비 프리미엄 21:04:58 ET 37초 전 갱신 - 10/20/2026 - Finnhub LIVE</
-        <div><a class
+  <!-- 사진에 있는 문구 그대로 -->
+  <div class="live-top">● 실시간 LIVE - 기준: 전일 종가 대비 프리미엄 21:04:58 ET 37초 전 갱신 - 10/20/2026 - Finnhub LIVE</div>
+  
+  <div class="title">오늘의 선물 시황과 <span>미국 연관주</span></div>
+  <div class="black-bar">● 전날 미국 변신종 TOP: 양자컴퓨팅 +8.2% / 원자력 +7.1% / 비트코인 +6.7% / AI반도체 +5.1%</div>
+  <div class="desc">전날 미국 증권 TOP 4 등락 - 8종목, 전일 기준 vol1 필터링, 각 종목 베타는 "대미 +v0% = 미국선물" 형식, 기술 50+수급 50, VWAP 5/10/15/20일, 외국인/기관/개인 90일 전원 차지 유무.</div>
+
+  <div class="charts">
+    <div class="chart"><h3>S&P500 선물</h3><div class="price" id="spyPrice">769.66 +2.62 LIVE</div><div style="font-size:10px;color:#888">전일 종가 767.04 - SPY</div></div>
+    <div class="chart"><h3>나스닥 선물</h3><div class="price" id="qqqPrice">715.11 -0.99 LIVE</div><div style="font-size:10px;color:#888">전일 종가 716.10 - QQQ</div></div>
+    <div class="chart"><h3>KOSPI 선물</h3><div class="price" id="kosPrice">153.96 -2.59 LIVE</div><div style="font-size:10px;color:#888">전일 종가 156.55 - EWY</div></div>
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-head"><div>종목명 / 현재가</div><div>관련 테마 / 미국 연관</div><div>기술적 분석 (50)</div><div>수급 분석 (50)</div><div>종합</div><div>코멘트</div><div>상세</div></div>
+    <div id="tableBody"><div style="padding:30px;text-align:center">로딩중...</div></div>
+  </div>
+</div>
+
+<div class="footer">© 2026 김가네 주식 | v1.0</div>
+
+<script>
+// 사진 시점 API 호출 - 캐시 방지 + 중복 제거
+async function load(){
+  try{
+    const res = await fetch(`/api/analysis?trigger=true&t=${Date.now()}`, {cache:'no-store'});
+    const data = await res.json();
+    if(data.quotes?.SPY) document.getElementById('spyPrice').innerText = `S&P500 ${data.quotes.SPY.c.toFixed(2)} LIVE`;
+    if(data.quotes?.QQQ) document.getElementById('qqqPrice').innerText = `나스닥 ${data.quotes.QQQ.c.toFixed(2)} LIVE`;
+    if(data.quotes?.EWY) document.getElementById('kosPrice').innerText = `KOSPI ${data.quotes.EWY.c.toFixed(2)} LIVE`;
+
+    const body = document.getElementById('tableBody');
+    body.innerHTML = '';
+    const seen = new Set();
+    for(const s of (data.themes||[])){
+      if(seen.has(s.code)) continue;
+      seen.add(s.code);
+      if(seen.size>8) break;
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = `<div><b>${s.name}</b> ${s.code}<br>₩${s.code}<br><span class="tag-orange">외국인 +3.9%</span></div><div><span class="tag-orange">${s.theme} +${(s.usChange||0).toFixed(1)}% → ${s.usSource}</span><br><span class="tag-green">${s.etf} ${(s.usChange||0).toFixed(2)}% LIVE</span></div><div><div class="bar"><div style="width:70%"></div></div> 38</div><div><div class="bar"><div style="width:80%"></div></div> 45</div><div><span class="score">${Math.floor(s.score||83)}</span></div><div style="font-size:10px">미국 ${s.etf} 연관</div><div><a class="view-btn" href="/detail.html?code=${s.code}">보기 →</a></div>`;
+      body.appendChild(row);
+    }
+  }catch(e){
+    document.getElementById('tableBody').innerText = '에러: '+e.message;
+  }
+}
+load();
+</script>
+</body>
+</html>
