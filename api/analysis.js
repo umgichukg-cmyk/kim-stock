@@ -61,15 +61,18 @@ export default async function handler(req, res) {
         avgChange: changes.length > 0 ? Math.round((changes.reduce((s, x) => s + x.pct, 0) / changes.length) * 10) / 10 : 0,
       });
 
-      // 프론트가 기대하는 themes 배열 형식
-      for (const ch of changes) {
+      // 프론트가 기대하는 themes 배열 형식 - 한국 종목 기준으로 push (미국 주식이 아니라)
+      for (const krName of t.kr) {
         allThemesForFrontend.push({
           theme: t.theme,
-          name: ch.symbol,
-          etf: ch.symbol,
+          name: krName,
+          etf: t.symbols[0] || "NVDA",
           score: Math.round(finalVol * 20),
-          changePct: ch.pct,
-          price: ch.curr,
+          changePct: changes.length>0 ? changes.reduce((s,x)=>s+x.pct,0)/changes.length : 0,
+          price: 0,
+          usSymbols: t.symbols,
+          avgVol: finalVol,
+          changes: changes,
         });
       }
     }
