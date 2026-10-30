@@ -30,7 +30,8 @@ api/news.js         GET /api/news?code=005930  종목 관련 뉴스
 api/top30.js        GET /api/top30  전체 종목 점수 상위 30 (data 브랜치 결과 읽기)
 api/_lib/           데이터 수집(naver, yahoo)과 점수 계산(score)
 scripts/dev-server.js  내 컴퓨터에서 실행하는 서버
-scripts/backtest.js    백테스트
+scripts/backtest.js    백테스트 (미국 테마 전략)
+scripts/backtest-strategies.js  전략 비교 백테스트 (52주 신고가·저변동성·모멘텀·밤사이 보유)
 scripts/scan-market.js 전체 종목 점수 계산
 .github/workflows/scan-market.yml  평일 저녁 7시 자동 계산
 ```
@@ -65,6 +66,20 @@ node scripts/backtest.js --from 2025-11-03 --to 2026-10-30 --cost 0.25 --top 4
 - 그날 아침 기준으로 전날까지의 일봉·수급만 써서 점수를 다시 계산합니다 (기본 점수는 과거 데이터가 없어 제외)
 - 결과 요약은 화면에, 거래 내역은 `backtest-results/`에 CSV로 저장합니다 (git에는 올리지 않음)
 - 받아온 데이터는 `.cache/backtest/`에 저장해 다시 실행할 때 재사용합니다
+
+### 전략 비교 백테스트
+
+코스피·코스닥 보통주 전체(그 시점 20일 평균 거래대금 10억 원 이상)로 연구에서 자주 언급되는 전략을 비교합니다.
+
+```bash
+node scripts/backtest-strategies.js --from 2025-01-02 --n 20 --cost 0.25
+```
+
+- ① 52주 신고가 근접 ② 저변동성(60일) ③ 모멘텀(12-1): 매월 첫 거래일 시가에 상위 N종목을 같은 금액씩 바꿔 담기
+- ④ 밤사이 보유: 매일 종가 매수 → 다음 날 시가 매도
+- 비교: 코스피·코스닥 지수 보유, 대상 종목 전체 같은 금액씩
+- 누적·연환산 수익률, 최대 낙폭, 전반기/후반기 수익률, 월 승률 출력
+- 한계: 지금 상장된 종목만 써서 상장폐지 종목이 빠짐 (결과가 실제보다 좋게 나올 수 있음)
 
 ## Vercel 배포
 
