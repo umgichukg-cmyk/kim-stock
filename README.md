@@ -26,6 +26,7 @@ api/market.js       GET /api/market  지수·선물·환율
 api/search.js       GET /api/search?q=삼성  종목명 검색
 api/_lib/           데이터 수집(naver, yahoo)과 점수 계산(score)
 scripts/dev-server.js  내 컴퓨터에서 실행하는 서버
+scripts/backtest.js    백테스트
 ```
 
 ## 내 컴퓨터에서 실행
@@ -37,6 +38,18 @@ npm run dev
 ```
 
 브라우저에서 http://localhost:3000 을 엽니다.
+
+## 백테스트
+
+"전일 미국장에서 오른 테마의 한국 종목을 다음 날 시가에 매수"한 결과를 과거 데이터로 확인합니다.
+
+```bash
+node scripts/backtest.js --from 2025-11-03 --to 2026-10-30 --cost 0.25 --top 4
+```
+
+- 그날 아침 기준으로 전날까지의 일봉·수급만 써서 점수를 다시 계산합니다 (기본 점수는 과거 데이터가 없어 제외)
+- 결과 요약은 화면에, 거래 내역은 `backtest-results/`에 CSV로 저장합니다 (git에는 올리지 않음)
+- 받아온 데이터는 `.cache/backtest/`에 저장해 다시 실행할 때 재사용합니다
 
 ## Vercel 배포
 
