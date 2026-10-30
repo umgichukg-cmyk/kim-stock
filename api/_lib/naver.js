@@ -10,6 +10,27 @@ function ymd(date) {
   return `${y}${m}${d}`;
 }
 
+// 시장 전체 종목 목록 (시가총액 순, ETF·ETN 포함)
+export async function listMarket(market) {
+  const all = [];
+  for (let page = 1; page <= 50; page++) {
+    const j = await fetchJson(`https://m.stock.naver.com/api/stocks/marketValue/${market}?page=${page}&pageSize=100`, {
+      headers: REFERER,
+    });
+    if (!j.stocks?.length) break;
+    all.push(
+      ...j.stocks.map((s) => ({
+        code: s.itemCode,
+        name: s.stockName,
+        market: market === "KOSPI" ? "코스피" : "코스닥",
+        type: s.stockEndType, // stock / etf / etn
+        halted: s.tradeStopType?.name === "HALTED",
+      }))
+    );
+  }
+  return all;
+}
+
 // 종목명(또는 코드 일부)으로 국내 종목 찾기
 export async function searchStocks(query, limit = 10) {
   const url = `https://ac.stock.naver.com/ac?q=${encodeURIComponent(query)}&target=stock`;

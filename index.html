@@ -39,6 +39,23 @@
       <div class="market" id="market"></div>
     </section>
 
+    <nav class="tabs" role="tablist" aria-label="화면 선택">
+      <button class="tab" role="tab" id="tab-themes" data-view="themes" aria-selected="true">오늘의 테마</button>
+      <button class="tab" role="tab" id="tab-top30" data-view="top30" aria-selected="false">전체 상위 30</button>
+    </nav>
+
+    <section class="panel" id="view-top30" hidden>
+      <div class="panel-head">
+        <div>
+          <h2>한국 시장 전체 점수 상위 30</h2>
+          <p class="sub" id="top30-sub">마지막으로 끝난 장 기준 · 코스피·코스닥 일반 주식 전체를 점수화</p>
+        </div>
+      </div>
+      <div class="picks" id="top30"></div>
+      <p class="notice" id="top30-note" hidden></p>
+    </section>
+
+    <div id="view-themes">
     <section class="panel">
       <div class="panel-head">
         <div>
@@ -59,6 +76,7 @@
       </div>
       <div class="picks" id="picks"></div>
     </section>
+    </div>
 
     <footer class="footer">
       <p><strong>점수 기준</strong> · 기술 45: 추세 15(주가·5/20/60일선 배열) · 모멘텀 15(RSI 14) · 거래대금 15(최근 5일/직전 20일) · 수급 45: 외국인 18 · 기관 18(최근 5일 순매수 ÷ 같은 기간 거래대금) · 매수 연속성 9 · 기본 10: 성장성 3(매출·영업이익 증가, 추정치 개선) · 수익성 3(ROE) · 가치 2(PER) · 재무 안정성 2(부채비율). 데이터가 없는 항목은 지어내지 않고 제외한 뒤 100점으로 환산합니다.</p>

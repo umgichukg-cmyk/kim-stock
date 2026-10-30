@@ -1,0 +1,54 @@
+# 매일 장 마감 후 한국 시장 전체 종목 점수를 계산해서 data 브랜치에 저장
+# 화면의 "전체 상위 30" 탭은 data 브랜치의 top30.json을 읽습니다.
+name: 전체 종목 점수 계산
+
+on:
+  schedule:
+    # 평일 한국 시간 19:00 (UTC 10:00). 그날 수급 데이터가 확정된 뒤
+    - cron: "0 10 * * 1-5"
+  workflow_dispatch: # GitHub Actions 화면에서 직접 실행
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scan-market
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 이전 기록 받기 (연속일수 계산용)
+        run: |
+          mkdir -p out
+          # data 브랜치가 아직 없으면(첫 실행) 빈 기록으로 시작
+          if git fetch -q --depth=1 origin data 2>/dev/null; then
+            git show FETCH_HEAD:history.json > out/history.json || echo '{}' > out/history.json
+          else
+            echo '{}' > out/history.json
+          fi
+          echo "기록된 날짜: $(node -e "console.log(Object.keys(require('./out/history.json')).sort().join(' '))")"
+
+      - name: 전체 종목 점수 계산
+        run: node scripts/scan-market.js --out out/top30.json --history out/history.json
+
+      - name: data 브랜치에 결과 저장
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd out
+          git init -q -b data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add top30.json history.json
+          git commit -q -m "전체 종목 점수 $(date -u +%Y-%m-%dT%H:%MZ)"
+          # git 기록은 쌓지 않고 덮어쓰기 (날짜별 순위 기록은 history.json 안에 60거래일치 보관)
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" data

@@ -135,6 +135,30 @@ function renderFilter() {
     .join("");
 }
 
+// 종목 카드 (테마 탭·상위 30 탭 공통)
+function cardHtml(p, { tag = null, rank = null, extra = "", streak = null } = {}) {
+  const d = dir(p.changePct);
+  const change = p.change != null ? `${won(Math.abs(p.change))} ` : "";
+  const streakBadge = streak
+    ? ` <span class="streak${streak >= 3 ? " hot" : ""}" title="거래일 기준 ${streak}일 연속 상위 진입">연속 ${streak}일</span>`
+    : "";
+  return `<button class="card" data-code="${esc(p.code)}">
+    <div class="card-top">
+      <div>
+        <div class="card-name">${rank ? `<span class="rank">${rank}</span>` : ""}${esc(p.name)}${streakBadge}</div>
+        <div class="card-meta">${esc(p.code)} · ${esc(p.market)}${tag ? ` · <span class="tag">${esc(tag)}</span>` : ""}${extra}</div>
+      </div>
+      ${ring(p.score.total, p.score.grade)}
+    </div>
+    <div class="card-price">
+      <span class="num">${won(p.price)}원</span>
+      <span class="num chg ${d}">${arrow(p.changePct)} ${change}(${pct(p.changePct)})</span>
+    </div>
+    <svg class="card-spark" viewBox="0 0 120 36" preserveAspectRatio="none">${sparkline(p.spark, { height: 36 }).replace(/^<svg[^>]*>|<\/svg>$/g, "")}</svg>
+    <div class="split">${miniBar("기술", p.score.technical)}${miniBar("수급", p.score.supply)}${miniBar("기본", p.score.basic)}</div>
+  </button>`;
+}
+
 function renderPicks(failed = []) {
   const list = state.picks.filter((p) => state.filter === "전체" || p.theme === state.filter);
   if (!list.length) {
@@ -142,26 +166,7 @@ function renderPicks(failed = []) {
     $("#picks").innerHTML = `<div class="state">${msg}<br><small>위쪽 검색창에 종목코드를 넣으면 아무 종목이나 분석할 수 있어요.</small></div>`;
     return;
   }
-  const cards = list
-    .map((p) => {
-      const d = dir(p.changePct);
-      return `<button class="card" data-code="${esc(p.code)}">
-        <div class="card-top">
-          <div>
-            <div class="card-name">${esc(p.name)}</div>
-            <div class="card-meta">${esc(p.code)} · ${esc(p.market)} · <span class="tag">${esc(p.theme)}</span></div>
-          </div>
-          ${ring(p.score.total, p.score.grade)}
-        </div>
-        <div class="card-price">
-          <span class="num">${won(p.price)}원</span>
-          <span class="num chg ${d}">${arrow(p.changePct)} ${won(Math.abs(p.change ?? 0))} (${pct(p.changePct)})</span>
-        </div>
-        <svg class="card-spark" viewBox="0 0 120 36" preserveAspectRatio="none">${sparkline(p.spark, { height: 36 }).replace(/^<svg[^>]*>|<\/svg>$/g, "")}</svg>
-        <div class="split">${miniBar("기술", p.score.technical)}${miniBar("수급", p.score.supply)}${miniBar("기본", p.score.basic)}</div>
-      </button>`;
-    })
-    .join("");
+  const cards = list.map((p) => cardHtml(p, { tag: p.theme })).join("");
   const note = failed.length
     ? `<div class="notice state" style="padding:10px">불러오지 못한 종목: ${failed.map((f) => esc(f.name)).join(", ")}</div>`
     : "";
@@ -209,6 +214,55 @@ async function load({ quiet = false } = {}) {
   state.loading = false;
   $("#refresh-btn").classList.remove("spinning");
 }
+
+// ---------- 전체 상위 30 탭 ----------
+
+let top30Loaded = 0;
+
+async function loadTop30() {
+  // 10분 안에 다시 열면 이전 결과 사용
+  if (Date.now() - top30Loaded < 600_000) return;
+  $("#top30").innerHTML = Array.from({ length: 6 }, () => `<div class="skeleton" style="height:190px"></div>`).join("");
+  try {
+    const data = await getJson("/api/top30");
+    top30Loaded = Date.now();
+    const d = data.basisDate;
+    const date = new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T12:00:00`);
+    const week = "일월화수목금토"[date.getDay()];
+    $("#top30-sub").textContent =
+      `${date.getMonth() + 1}/${date.getDate()}(${week}) 장 마감 기준 · 코스피·코스닥 일반 주식 ${data.counts.universe.toLocaleString()}개 중 ` +
+      `거래대금 조건을 통과한 ${data.counts.scored.toLocaleString()}개를 점수화 · 계산 ${timeLabel(new Date(data.generatedAt))}`;
+    $("#top30").innerHTML = data.items
+      .map((p) => cardHtml(p, { rank: p.rank, streak: p.streak, extra: ` · 거래대금 ${p.avgValue.toLocaleString()}억/일` }))
+      .join("");
+    const ex = Object.entries(data.excluded)
+      .map(([k, v]) => `${k} ${v.toLocaleString()}개`)
+      .join(", ");
+    const note = $("#top30-note");
+    note.hidden = false;
+    const streakNote = data.historyDays
+      ? `"연속 N일"은 거래일 기준으로 상위 30에 연속해서 든 날 수예요 (기록 ${data.historyDays}일치). `
+      : "";
+    note.textContent = `${streakNote}제외: ${ex}. 매일 저녁 7시쯤(평일) 새로 계산해요. 카드를 누르면 지금 시세로 상세 분석을 볼 수 있어요.`;
+  } catch (e) {
+    renderError("#top30", e.message);
+  }
+}
+
+function showView(view) {
+  const top = view === "top30";
+  $("#view-top30").hidden = !top;
+  $("#view-themes").hidden = top;
+  $("#tab-top30").setAttribute("aria-selected", top);
+  $("#tab-themes").setAttribute("aria-selected", !top);
+  if (top) loadTop30();
+  if (location.hash !== (top ? "#top30" : "")) history.replaceState(null, "", top ? "#top30" : location.pathname);
+}
+
+document.querySelector(".tabs").addEventListener("click", (e) => {
+  const tab = e.target.closest("[data-view]");
+  if (tab) showView(tab.dataset.view);
+});
 
 // ---------- 상세 ----------
 
@@ -505,6 +559,10 @@ document.addEventListener("click", (e) => {
     return;
   }
 
+  if (e.target.closest("#top30 [data-retry]")) {
+    top30Loaded = 0;
+    return loadTop30();
+  }
   if (e.target.closest("[data-retry]")) return load();
   if (e.target.closest("[data-close]")) return $("#detail").close();
 });
@@ -625,3 +683,4 @@ setInterval(() => {
 }, REFRESH_MS);
 
 load();
+if (location.hash === "#top30") showView("top30");

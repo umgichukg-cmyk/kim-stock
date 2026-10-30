@@ -6,6 +6,7 @@
 - 한국 종목 점수: 기술 45(추세·RSI·거래대금) + 수급 45(외국인·기관 순매수·연속성) + 기본 10(성장성·수익성·가치·재무 안정성)
 - 종목 상세: 일봉 캔들 + 5/20/60일선 + 20일 VWAP, 점수 근거, 투자자별 20일 순매수, 재무 요약(연간 실적·추정치·목표주가)
 - 종목명 또는 종목코드로 검색해서 아무 종목이나 분석 (입력하면 추천 목록 표시)
+- 전체 상위 30 탭: 마지막으로 끝난 장 기준, 코스피·코스닥 전체 종목 중 점수 상위 30 (매일 저녁 자동 계산)
 - 시장 지표: 코스피, 코스닥, 원/달러, 비트코인, 국제유가(WTI), 다우존스, 나스닥100, 필라델피아 반도체, S&P500·나스닥 선물
 
 데이터를 못 받아오면 가짜 값으로 채우지 않고 "불러오지 못함" / "계산 불가"로 보여줍니다.
@@ -24,9 +25,12 @@ api/picks.js        GET /api/picks   테마 순위 + 추천 종목 점수
 api/stock.js        GET /api/stock?code=005930   종목 상세
 api/market.js       GET /api/market  지수·선물·환율
 api/search.js       GET /api/search?q=삼성  종목명 검색
+api/top30.js        GET /api/top30  전체 종목 점수 상위 30 (data 브랜치 결과 읽기)
 api/_lib/           데이터 수집(naver, yahoo)과 점수 계산(score)
 scripts/dev-server.js  내 컴퓨터에서 실행하는 서버
 scripts/backtest.js    백테스트
+scripts/scan-market.js 전체 종목 점수 계산
+.github/workflows/scan-market.yml  평일 저녁 7시 자동 계산
 ```
 
 ## 내 컴퓨터에서 실행
@@ -38,6 +42,15 @@ npm run dev
 ```
 
 브라우저에서 http://localhost:3000 을 엽니다.
+
+## 전체 종목 점수 계산 (전체 상위 30 탭)
+
+- GitHub Actions가 평일 한국 시간 저녁 7시에 `scripts/scan-market.js`를 실행합니다.
+- 코스피·코스닥 일반 주식 전체에서 ETF·ETN·우선주·스팩·거래정지와 20일 평균 거래대금 10억 원 미만을 빼고 점수를 계산합니다.
+- 카드의 "연속 N일"은 거래일 기준(주말·휴장일 제외)으로 상위 30에 연속해서 든 날 수입니다. 날짜별 순위는 `history.json`에 60거래일치 보관합니다. 자동 계산이 빠진 거래일이 있으면 그 날에서 연속이 끊깁니다.
+- 결과(`top30.json`, `history.json`)는 `data` 브랜치에 덮어써서 저장하고, 화면은 `/api/top30`으로 읽습니다. main에는 커밋이 쌓이지 않습니다.
+- 바로 다시 계산하려면 GitHub 저장소 → Actions → "전체 종목 점수 계산" → Run workflow
+- 내 컴퓨터에서: `node scripts/scan-market.js` (결과는 `data/top30.json`, 로컬 서버가 이 파일을 먼저 읽음)
 
 ## 백테스트
 
