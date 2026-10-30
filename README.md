@@ -1,35 +1,65 @@
+# 김가네 주식 v2
 
-# 김가네 주식 - 최종 배포 가이드 (한국 가격 정확 버전)
+전날 미국 시장에서 크게 움직인 테마를 찾고, 그 테마에 연결된 한국 종목을 **실제 지표로만** 100점 만점 점수화하는 웹앱입니다.
 
-## 왜 GitHub 배포가 필요한가?
-- 드래그 업로드: 정적 파일만 -> /api/naver.js 실행 안됨 -> 한국 가격 CORS 차단 -> Mock 가격
-- GitHub Import: Vercel이 /api/*.js를 서버 함수로 실행 -> 네이버 우회 -> 실시간 정확
+- 미국 테마 흐름: 테마별 미국 대표 종목의 최근 거래일 등락 → 움직임이 큰 순서
+- 한국 종목 점수: 기술 50(추세·RSI·거래대금) + 수급 50(외국인·기관 순매수·연속성)
+- 종목 상세: 일봉 캔들 + 5/20/60일선 + 20일 VWAP, 점수 근거, 투자자별 20일 순매수
+- 아무 종목코드나 검색해서 분석 가능
+- 시장 지표: 코스피, 코스닥, S&P500·나스닥 선물, 원/달러
 
-## 배포 방법 (5분)
+데이터를 못 받아오면 가짜 값으로 채우지 않고 "불러오지 못함" / "계산 불가"로 보여줍니다.
+API 키가 필요 없습니다 (네이버 증권 + Yahoo Finance 공개 데이터).
 
-### 1. GitHub에 업로드
-1. github.com -> New repository -> 이름: kim-stock -> Public -> Create
-2. Add file -> Upload files -> 이 폴더의 모든 파일 (index.html, vercel.json, api 폴더 전체) 드래그
-3. Commit changes
+> 투자 참고용이며 매수·매도 권유가 아닙니다. 시세는 지연될 수 있습니다.
 
-### 2. Vercel에 연결
-1. vercel.com -> Add New Project -> Import Git Repository -> kim-stock 선택
-2. Framework Preset: Other
-3. Environment Variables:
-   - FINNHUB_API_KEY = dbb3tf9r01qrv06o8togdbb3tf9r01qrv06o8tp0
-4. Deploy -> 1분 대기 -> 주소 생성
+## 폴더 구조
 
-### 3. 확인
-- https://your-project.vercel.app 접속
-- F12 Console에서:
-  [KR] /api/naver?code=123010 호출
-  [KR] 응답: ... closePrice ...
-  -> 성공 시 한국 가격 실시간 표시
+```
+index.html          화면 뼈대
+assets/style.css    디자인 (라이트/다크 자동)
+assets/app.js       화면 동작
+config/themes.js    ★ 테마·종목·시장지표 설정 - 종목을 바꾸려면 이 파일만 수정
+api/picks.js        GET /api/picks   테마 순위 + 추천 종목 점수
+api/stock.js        GET /api/stock?code=005930   종목 상세
+api/market.js       GET /api/market  지수·선물·환율
+api/_lib/           데이터 수집(naver, yahoo)과 점수 계산(score)
+scripts/dev-server.js  내 컴퓨터에서 실행하는 서버
+```
 
-- 미국 주식: [Finnhub] 실시간 ● SPY $766...
+## 내 컴퓨터에서 실행
 
-## 파일 설명
-- index.html: 메인 앱 (전일 변동성 TOP 테마 기반 한국 종목 선정)
-- api/naver.js: 네이버 금융 프록시 (한국 가격 정확)
-- api/finnhub.js: 미국 주식 프록시
-- vercel.json: 라우팅 설정
+Node.js 20 이상이 필요합니다.
+
+```bash
+npm run dev
+```
+
+브라우저에서 http://localhost:3000 을 엽니다.
+
+## Vercel 배포
+
+1. 이 저장소를 GitHub에 올립니다.
+2. Vercel → Add New Project → 저장소 선택 → Framework Preset: **Other** → Deploy
+3. 환경변수는 필요 없습니다.
+
+## 점수 기준
+
+| 구분 | 항목 | 배점 | 계산 |
+|---|---|---|---|
+| 기술 | 추세 | 20 | 주가>20일선 7, 5일선>20일선 6, 20일선>60일선 7 |
+| 기술 | 모멘텀 | 15 | RSI(14) 50~70 15점, 40~50 9점, 70~80 8점, 30~40 4점, 80 이상 3점, 30 미만 2점 |
+| 기술 | 거래대금 | 15 | 최근 5일 평균 ÷ 직전 20일 평균: 200%↑ 15, 150%↑ 12, 120%↑ 9, 100%↑ 6, 70%↑ 3 |
+| 수급 | 외국인 | 20 | 최근 5일 순매수 금액 ÷ 같은 기간 거래대금: 10%↑ 만점, 5%↑ 80%, 2%↑ 60%, 0 초과 40%, -2% 초과 20% |
+| 수급 | 기관 | 20 | 외국인과 같은 방식 |
+| 수급 | 매수 연속성 | 10 | 최근 5일 중 외국인+기관 합계 순매수인 날의 비율 |
+
+순매수 금액은 네이버가 주는 순매수 **수량 × 그날 종가**로 추정합니다.
+데이터가 부족한 항목은 빼고 나머지로 100점 환산합니다.
+
+## v1에서 바뀐 점
+
+- Meta AI가 만든 압축 번들(`index.html` 344KB)을 읽고 고칠 수 있는 소스로 새로 작성
+- 무작위 값·고정 문구로 채우던 가짜 데이터(테마 변동성, 선물 차트, RSI·수급 설명)를 모두 제거
+- 코드에 박혀 있던 Finnhub API 키 제거, 키움·Finnhub 의존성 제거
+- 테마/종목을 `config/themes.js` 한 곳에서 관리
