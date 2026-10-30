@@ -1,5 +1,6 @@
 // 지표 계산과 100점 스코어링
-// 모든 점수는 실제 일봉과 투자자별 순매수에서만 계산합니다.
+// 기술 45 + 수급 45 + 기본 10 = 100
+// 모든 점수는 실제 일봉, 투자자별 순매수, 재무 데이터에서만 계산합니다.
 // 데이터가 부족하면 그 항목은 0점이 아니라 "계산 불가"로 표시하고 만점에서 제외합니다.
 
 export function sma(values, period) {
@@ -47,10 +48,10 @@ function eok(won) {
   return `${v >= 0 ? "+" : ""}${Math.abs(v) >= 100 ? Math.round(v).toLocaleString("ko-KR") : v.toFixed(1)}억`;
 }
 
-// ---------- 기술 점수 (50) ----------
+// ---------- 기술 점수 (45) ----------
 
 function trendItem(closes) {
-  const max = 20;
+  const max = 15;
   const ma5 = sma(closes, 5).at(-1);
   const ma20 = sma(closes, 20).at(-1);
   const ma60 = sma(closes, 60).at(-1);
@@ -58,10 +59,10 @@ function trendItem(closes) {
   if (ma20 == null) return { key: "trend", label: "추세", max, score: null, detail: "일봉 20개 미만" };
   let score = 0;
   const notes = [];
-  if (last > ma20) { score += 7; notes.push("주가>20일선"); } else notes.push("주가<20일선");
-  if (ma5 > ma20) { score += 6; notes.push("5일선>20일선"); } else notes.push("5일선<20일선");
+  if (last > ma20) { score += 5; notes.push("주가>20일선"); } else notes.push("주가<20일선");
+  if (ma5 > ma20) { score += 5; notes.push("5일선>20일선"); } else notes.push("5일선<20일선");
   if (ma60 != null) {
-    if (ma20 > ma60) { score += 7; notes.push("20일선>60일선"); } else notes.push("20일선<60일선");
+    if (ma20 > ma60) { score += 5; notes.push("20일선>60일선"); } else notes.push("20일선<60일선");
   } else notes.push("60일선 데이터 부족");
   return { key: "trend", label: "추세", max, score, detail: notes.join(" · ") };
 }
@@ -104,7 +105,7 @@ function volumeItem(candles) {
   };
 }
 
-// ---------- 수급 점수 (50) ----------
+// ---------- 수급 점수 (45) ----------
 
 // 5일 순매수 금액을 같은 5일간 전체 거래대금과 비교
 function netBuyScore(ratio, max) {
@@ -117,7 +118,7 @@ function netBuyScore(ratio, max) {
 }
 
 function investorItem(key, label, flows, candles) {
-  const max = 20;
+  const max = 18;
   const recent = flows.slice(-5);
   const traded = candles.slice(-recent.length).reduce((s, c) => s + c.close * c.volume, 0);
   if (recent.length < 3 || !traded) return { key, label, max, score: null, detail: "수급 데이터 부족" };
@@ -135,7 +136,7 @@ function investorItem(key, label, flows, candles) {
 }
 
 function consistencyItem(flows) {
-  const max = 10;
+  const max = 9;
   const recent = flows.slice(-5);
   if (recent.length < 3) return { key: "consistency", label: "매수 연속성", max, score: null, detail: "수급 데이터 부족" };
   const days = recent.filter((f) => f.foreignAmt + f.institutionAmt > 0).length;
@@ -148,9 +149,88 @@ function consistencyItem(flows) {
   };
 }
 
+// ---------- 기본 점수 (10) ----------
+
+// 실제 값 중 가장 최근 연도와 그 전년도
+function lastTwo(series = []) {
+  const valid = series.filter((p) => p.value != null);
+  return [valid.at(-2) ?? null, valid.at(-1) ?? null];
+}
+
+function growthItem(f) {
+  const max = 3;
+  const [revPrev, revLast] = lastTwo(f?.revenue);
+  const [opPrev, opLast] = lastTwo(f?.operatingProfit);
+  if (!revLast || !opLast) return { key: "growth", label: "성장성", max, score: null, detail: "연간 실적 데이터 없음" };
+  let score = 0;
+  const notes = [];
+  if (revPrev) {
+    const up = revLast.value > revPrev.value;
+    if (up) score += 1;
+    notes.push(`${revLast.year} 매출 ${up ? "증가" : "감소"}`);
+  }
+  if (opPrev) {
+    const up = opLast.value > opPrev.value;
+    if (up) score += 1;
+    notes.push(`영업이익 ${up ? "증가" : "감소"}`);
+  }
+  if (f.operatingProfitEst != null) {
+    const up = f.operatingProfitEst > opLast.value;
+    if (up) score += 1;
+    notes.push(`${f.estimateYear} 추정 영업이익 ${up ? "개선" : "후퇴"}`);
+  } else notes.push("추정치 없음");
+  return { key: "growth", label: "성장성", max, score, detail: notes.join(" · ") };
+}
+
+function profitabilityItem(f) {
+  const max = 3;
+  const [, roe] = lastTwo(f?.roe);
+  if (!roe) return { key: "profitability", label: "수익성", max, score: null, detail: "ROE 데이터 없음" };
+  const v = roe.value;
+  const score = v >= 10 ? 3 : v >= 5 ? 2 : v > 0 ? 1 : 0;
+  const [, margin] = lastTwo(f?.operatingMargin);
+  return {
+    key: "profitability",
+    label: "수익성",
+    max,
+    score,
+    detail: `${roe.year} ROE ${v.toFixed(1)}%${margin ? ` · 영업이익률 ${margin.value.toFixed(1)}%` : ""}`,
+  };
+}
+
+function valuationItem(f) {
+  const max = 2;
+  // 재무제표 자체가 없으면(ETF 등) 계산 불가, 실적은 있는데 PER이 없으면 적자로 보고 0점
+  if (!f || !lastTwo(f.operatingProfit)[1]) return { key: "valuation", label: "가치", max, score: null, detail: "PER 데이터 없음" };
+  const per = f.per;
+  let score = 0;
+  let note;
+  if (per == null || per <= 0) note = "PER 없음(적자 등)";
+  else {
+    score = per <= 15 ? 2 : per <= 30 ? 1 : 0;
+    note = `PER ${per.toFixed(1)}배`;
+  }
+  const extra = [f.pbr != null ? `PBR ${f.pbr.toFixed(2)}배` : null, f.estPer != null ? `추정PER ${f.estPer.toFixed(1)}배` : null];
+  return { key: "valuation", label: "가치", max, score, detail: [note, ...extra].filter(Boolean).join(" · ") };
+}
+
+function stabilityItem(f) {
+  const max = 2;
+  const [, debt] = lastTwo(f?.debtRatio);
+  if (!debt) return { key: "stability", label: "재무 안정성", max, score: null, detail: "부채비율 데이터 없음" };
+  const v = debt.value;
+  return {
+    key: "stability",
+    label: "재무 안정성",
+    max,
+    score: v <= 100 ? 2 : v <= 200 ? 1 : 0,
+    detail: `${debt.year} 부채비율 ${v.toFixed(0)}%`,
+  };
+}
+
 // ---------- 종합 ----------
 
-export function scoreStock(candles, flows) {
+export function scoreStock(candles, flows, fundamentals) {
   const closes = candles.map((c) => c.close);
 
   const technical = [trendItem(closes), momentumItem(closes), volumeItem(candles)];
@@ -159,11 +239,18 @@ export function scoreStock(candles, flows) {
     investorItem("institution", "기관", flows, candles),
     consistencyItem(flows),
   ];
+  const basic = [
+    growthItem(fundamentals),
+    profitabilityItem(fundamentals),
+    valuationItem(fundamentals),
+    stabilityItem(fundamentals),
+  ];
 
   const sum = (items) => items.reduce((s, i) => s + (i.score ?? 0), 0);
   const maxOf = (items) => items.reduce((s, i) => s + (i.score == null ? 0 : i.max), 0);
-  const raw = sum(technical) + sum(supply);
-  const available = maxOf(technical) + maxOf(supply);
+  const groups = [technical, supply, basic];
+  const raw = groups.reduce((s, g) => s + sum(g), 0);
+  const available = groups.reduce((s, g) => s + maxOf(g), 0);
   // 계산 가능한 항목만으로 100점 환산
   const total = available ? Math.round((raw / available) * 100) : null;
 
@@ -172,6 +259,7 @@ export function scoreStock(candles, flows) {
     grade: total == null ? "데이터 부족" : total >= 75 ? "강함" : total >= 60 ? "양호" : total >= 45 ? "보통" : "약함",
     technical: { score: sum(technical), max: maxOf(technical), items: technical },
     supply: { score: sum(supply), max: maxOf(supply), items: supply },
+    basic: { score: sum(basic), max: maxOf(basic), items: basic },
     complete: available === 100,
   };
 }

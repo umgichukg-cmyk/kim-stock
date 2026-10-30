@@ -86,10 +86,15 @@ export const THEMES = [
 export const MARKET = [
   { id: "kospi", name: "코스피", symbol: "^KS11", unit: "" },
   { id: "kosdaq", name: "코스닥", symbol: "^KQ11", unit: "" },
+  { id: "usdkrw", name: "원/달러", symbol: "KRW=X", unit: "원" },
+  { id: "btc", name: "비트코인", symbol: "BTC-USD", unit: "달러" },
+  { id: "wti", name: "국제유가(WTI)", symbol: "CL=F", unit: "달러" },
+  { id: "dow", name: "다우존스", symbol: "^DJI", unit: "" },
+  { id: "ndx", name: "나스닥100", symbol: "^NDX", unit: "" },
+  { id: "sox", name: "필라델피아 반도체", symbol: "^SOX", unit: "" },
   { id: "sp500f", name: "S&P500 선물", symbol: "ES=F", unit: "" },
   { id: "nasdaqf", name: "나스닥 선물", symbol: "NQ=F", unit: "" },
-  { id: "usdkrw", name: "원/달러", symbol: "KRW=X", unit: "원" },
 ];
 
-// 추천 종목을 뽑을 상위 테마 개수
+// 추천 종목을 뽑을 상위 테마 개수 (전일 상승한 테마 중에서만 고릅니다)
 export const TOP_THEMES = 4;

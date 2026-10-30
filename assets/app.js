@@ -70,7 +70,7 @@ function ring(score, grade) {
 function miniBar(label, part) {
   const ratio = part.max ? part.score / part.max : 0;
   return `<div>
-    <div class="mini-label"><span>${label}</span><b>${part.score}/${part.max}</b></div>
+    <div class="mini-label"><span>${label}</span><b>${part.max ? `${part.score}/${part.max}` : "-"}</b></div>
     <div class="mini-track"><div class="mini-fill" style="width:${(ratio * 100).toFixed(0)}%"></div></div>
   </div>`;
 }
@@ -96,8 +96,13 @@ function renderMarket(items) {
 
 // ---------- 테마 ----------
 
-function renderThemes(themes, topThemes) {
-  $("#top-count").textContent = topThemes.length;
+function renderThemes(themes, topThemes, sessionDate) {
+  $("#top-count").textContent = topThemes.length ? `상승한 테마 ${topThemes.length}개` : "상승한 테마";
+  if (sessionDate) {
+    const d = new Date(`${sessionDate}T12:00:00`);
+    const week = "일월화수목금토"[d.getDay()];
+    $("#session-date").textContent = `${d.getMonth() + 1}/${d.getDate()}(${week})`;
+  }
   const maxAbs = Math.max(1, ...themes.map((t) => Math.abs(t.avgChange ?? 0)));
   $("#themes").innerHTML = themes
     .map((t, i) => {
@@ -133,7 +138,8 @@ function renderFilter() {
 function renderPicks(failed = []) {
   const list = state.picks.filter((p) => state.filter === "전체" || p.theme === state.filter);
   if (!list.length) {
-    $("#picks").innerHTML = `<div class="state">표시할 종목이 없어요.</div>`;
+    const msg = state.topThemes.length ? "표시할 종목이 없어요." : "전일 미국장에서 오른 테마가 없어서 점수화할 종목이 없어요.";
+    $("#picks").innerHTML = `<div class="state">${msg}<br><small>위쪽 검색창에 종목코드를 넣으면 아무 종목이나 분석할 수 있어요.</small></div>`;
     return;
   }
   const cards = list
@@ -152,7 +158,7 @@ function renderPicks(failed = []) {
           <span class="num chg ${d}">${arrow(p.changePct)} ${won(Math.abs(p.change ?? 0))} (${pct(p.changePct)})</span>
         </div>
         <svg class="card-spark" viewBox="0 0 120 36" preserveAspectRatio="none">${sparkline(p.spark, { height: 36 }).replace(/^<svg[^>]*>|<\/svg>$/g, "")}</svg>
-        <div class="split">${miniBar("기술", p.score.technical)}${miniBar("수급", p.score.supply)}</div>
+        <div class="split">${miniBar("기술", p.score.technical)}${miniBar("수급", p.score.supply)}${miniBar("기본", p.score.basic)}</div>
       </button>`;
     })
     .join("");
@@ -190,7 +196,7 @@ async function load({ quiet = false } = {}) {
     state.picks = data.picks;
     state.themes = data.themes;
     state.topThemes = data.topThemes;
-    renderThemes(data.themes, data.topThemes);
+    renderThemes(data.themes, data.topThemes, data.sessionDate);
     renderFilter();
     renderPicks(data.failed);
     $("#updated").textContent = `${timeLabel(new Date(data.updatedAt))} 기준`;
@@ -223,6 +229,45 @@ function scoreColumn(title, part) {
     )
     .join("");
   return `<div class="score-col"><h4><span>${title}</span><span class="num">${part.score} / ${part.max}</span></h4>${items}</div>`;
+}
+
+function fundamentalsSection(f, price) {
+  if (!f || !f.revenue?.some((p) => p.value != null)) return "";
+  const last = (series) => series?.filter((p) => p.value != null).at(-1)?.value ?? null;
+  const fixed = (v, d, unit) => (v == null ? "-" : `${v.toFixed(d)}${unit}`);
+  const upside = f.targetPrice && price ? ((f.targetPrice - price) / price) * 100 : null;
+  const opinion = f.recommMean == null ? null : f.recommMean >= 3.5 ? "매수" : f.recommMean >= 2.5 ? "중립" : "매도";
+
+  const years = f.revenue.map((p) => p.year);
+  const head = years.map((y) => `<th>${y}</th>`).join("") + (f.estimateYear ? `<th>${f.estimateYear}(추정)</th>` : "");
+  const row = (label, series, est, fmt) =>
+    `<tr><td>${label}</td>${series.map((p) => `<td class="num">${fmt(p.value)}</td>`).join("")}${f.estimateYear ? `<td class="num">${fmt(est)}</td>` : ""}</tr>`;
+  const money = (v) => (v == null ? "-" : v.toLocaleString("ko-KR"));
+  const rate = (v) => (v == null ? "-" : `${v.toFixed(1)}%`);
+
+  return `
+    <div class="section-title"><span>재무 요약</span><span class="sub">연간 · 금액 단위 억원</span></div>
+    <div class="stats">
+      ${statBox("PER", fixed(f.per, 1, "배"))}
+      ${statBox("PBR", fixed(f.pbr, 2, "배"))}
+      ${statBox("ROE", fixed(last(f.roe), 1, "%"))}
+      ${statBox("부채비율", fixed(last(f.debtRatio), 0, "%"))}
+      ${statBox("시가총액", esc(f.marketValue ?? "-"))}
+      ${statBox(
+        "목표주가(평균)",
+        f.targetPrice ? `${won(f.targetPrice)}${upside != null ? ` <small class="${dir(upside)}">${pct(upside, 0)}</small>` : ""}` : "-"
+      )}
+    </div>
+    <div class="table-wrap"><table class="flow-table">
+      <thead><tr><th>항목</th>${head}</tr></thead>
+      <tbody>
+        ${row("매출액", f.revenue, f.revenueEst, money)}
+        ${row("영업이익", f.operatingProfit, f.operatingProfitEst, money)}
+        ${row("영업이익률", f.operatingMargin, null, rate)}
+        ${row("ROE", f.roe, null, rate)}
+      </tbody>
+    </table></div>
+    ${opinion ? `<p class="sub" style="margin-top:6px">증권사 평균 투자의견 ${opinion} (${f.recommMean.toFixed(2)} / 5) · 목표주가는 참고용이며 점수에는 넣지 않았어요.</p>` : ""}`;
 }
 
 function flowChart(flows) {
@@ -264,7 +309,6 @@ function flowChart(flows) {
 function flowTable(flows) {
   const rows = [...flows]
     .reverse()
-    .slice(0, 10)
     .map(
       (f) => `<tr><td>${f.date.slice(0, 4)}.${dateLabel(f.date)}</td>
         <td class="num">${won(f.close)}</td>
@@ -274,7 +318,41 @@ function flowTable(flows) {
         <td class="num">${f.foreignHoldRatio == null ? "-" : `${f.foreignHoldRatio.toFixed(2)}%`}</td></tr>`
     )
     .join("");
-  return `<div class="table-wrap"><table class="flow-table"><thead><tr><th>날짜</th><th>종가</th><th>외국인</th><th>기관</th><th>개인</th><th>외국인 보유율</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div class="table-wrap flow-scroll"><table class="flow-table"><thead><tr><th>날짜</th><th>종가</th><th>외국인</th><th>기관</th><th>개인</th><th>외국인 보유율</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+// 선택한 기간의 외국인/기관/개인 누적 순매수
+function flowTotals(flows) {
+  const sum = (k) => flows.reduce((s, f) => s + f[k], 0);
+  const box = (label, color, v) =>
+    `<div class="stat total"><span><i style="background:${color}"></i>${label} 누적</span><b class="${dir(v)}">${eok(v)}</b></div>`;
+  const first = flows[0]?.foreignHoldRatio;
+  const last = flows.at(-1)?.foreignHoldRatio;
+  const holdChange = first != null && last != null ? last - first : null;
+  return `<div class="totals">
+    ${box("외국인", "var(--foreign)", sum("foreignAmt"))}
+    ${box("기관", "var(--institution)", sum("institutionAmt"))}
+    ${box("개인", "var(--individual)", sum("individualAmt"))}
+    <div class="stat total"><span>외국인 보유율 변화</span><b class="${dir(holdChange)}">${holdChange == null ? "-" : `${holdChange > 0 ? "+" : ""}${holdChange.toFixed(2)}%p`}</b></div>
+  </div>`;
+}
+
+const FLOW_PERIODS = [5, 10, 15, 20, 30];
+
+function renderFlows(all, days) {
+  const flows = all.slice(-days);
+  const range = flows.length ? `${dateLabel(flows[0].date)} ~ ${dateLabel(flows.at(-1).date)}` : "";
+  $("#flow-section").innerHTML = `
+    <div class="section-title">
+      <span>투자자별 순매수 (최근 ${flows.length}거래일, 금액)</span>
+      <div class="chips" id="flow-chips">
+        ${FLOW_PERIODS.map((d) => `<button class="chip" data-days="${d}" aria-selected="${d === days}">${d}일</button>`).join("")}
+      </div>
+    </div>
+    <div class="legend" style="margin-bottom:6px"><span><i style="background:var(--foreign)"></i>외국인</span><span><i style="background:var(--institution)"></i>기관</span><span><i style="background:var(--individual)"></i>개인</span></div>
+    ${flowChart(flows)}
+    ${flows.length ? flowTable(flows) : ""}
+    ${flows.length ? `<div class="section-title" style="margin-top:14px"><span>기간 누적 순매수</span><span class="sub">${range}</span></div>${flowTotals(flows)}` : ""}`;
 }
 
 function drawCandles(el, candles, stats) {
@@ -388,16 +466,19 @@ async function openDetail(code) {
     <div class="chart-box" id="candle-chart"></div>
 
     <div class="section-title"><span>점수 근거 · 종합 ${s.score.total ?? "-"}점</span>${s.score.complete ? "" : `<span class="sub">일부 항목은 데이터가 없어 제외하고 환산했어요</span>`}</div>
-    <div class="score-grid">${scoreColumn("기술", s.score.technical)}${scoreColumn("수급", s.score.supply)}</div>
+    <div class="score-grid">${scoreColumn("기술", s.score.technical)}${scoreColumn("수급", s.score.supply)}${scoreColumn("기본", s.score.basic)}</div>
 
-    <div class="section-title">
-      <span>투자자별 순매수 (최근 ${s.flows.length}일, 금액)</span>
-      <div class="legend"><span><i style="background:var(--foreign)"></i>외국인</span><span><i style="background:var(--institution)"></i>기관</span><span><i style="background:var(--individual)"></i>개인</span></div>
-    </div>
-    ${flowChart(s.flows)}
-    ${s.flows.length ? flowTable(s.flows) : ""}
+    ${fundamentalsSection(s.fundamentals, s.price)}
+
+    <div id="flow-section"></div>
     <p class="sub" style="margin-top:10px">순매수 금액 = 순매수 수량 × 그날 종가(추정치). ${timeLabel(new Date(s.updatedAt))} 기준.</p>
   `;
+
+  renderFlows(s.flows, 20);
+  $("#flow-section").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-days]");
+    if (btn) renderFlows(s.flows, Number(btn.dataset.days));
+  });
 
   const candleEl = $("#candle-chart");
   const total = s.candles.length;

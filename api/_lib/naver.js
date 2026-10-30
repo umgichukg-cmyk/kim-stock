@@ -51,6 +51,47 @@ export async function getDailyCandles(code, calendarDays = 200) {
     .filter((r) => r.close > 0);
 }
 
+// 기본적 분석 데이터: PER/PBR, 연간 실적(최근 실적 + 올해 추정치), 증권사 컨센서스
+export async function getFundamentals(code) {
+  const [integ, annual] = await Promise.all([
+    fetchJson(`https://m.stock.naver.com/api/stock/${code}/integration`, { headers: REFERER }),
+    fetchJson(`https://m.stock.naver.com/api/stock/${code}/finance/annual`, { headers: REFERER }).catch(() => null),
+  ]);
+
+  const info = {};
+  for (const x of integ.totalInfos || []) info[x.code] = x.value;
+
+  // 연간 실적: 실제 값 컬럼과 추정치(컨센서스) 컬럼 분리
+  const fin = annual?.financeInfo;
+  const titles = fin?.trTitleList || [];
+  const actualKeys = titles.filter((t) => t.isConsensus !== "Y").map((t) => t.key);
+  const estimateKey = titles.find((t) => t.isConsensus === "Y")?.key ?? null;
+  const rows = {};
+  for (const r of fin?.rowList || []) {
+    rows[r.title] = Object.fromEntries(Object.entries(r.columns || {}).map(([k, v]) => [k, toNumber(v.value)]));
+  }
+  const series = (title) => actualKeys.map((k) => ({ year: k.slice(0, 4), value: rows[title]?.[k] ?? null }));
+  const estimate = (title) => (estimateKey ? rows[title]?.[estimateKey] ?? null : null);
+
+  return {
+    per: toNumber(info.per),
+    pbr: toNumber(info.pbr),
+    estPer: toNumber(info.cnsPer),
+    dividendYield: toNumber(info.dividendYieldRatio),
+    marketValue: info.marketValue ?? null, // "34조 3,341억" 형태 그대로
+    estimateYear: estimateKey?.slice(0, 4) ?? null,
+    revenue: series("매출액"),
+    operatingProfit: series("영업이익"),
+    roe: series("ROE"),
+    operatingMargin: series("영업이익률"),
+    debtRatio: series("부채비율"),
+    revenueEst: estimate("매출액"),
+    operatingProfitEst: estimate("영업이익"),
+    targetPrice: toNumber(integ.consensusInfo?.priceTargetMean),
+    recommMean: toNumber(integ.consensusInfo?.recommMean), // 1(매도)~5(매수)
+  };
+}
+
 // 투자자별 순매수 (최신 → 오래된 순으로 오는 것을 오래된 → 최신 순으로 정리)
 // 수량(주)과 그날 종가로 계산한 금액(원)을 함께 돌려줍니다.
 export async function getInvestorFlows(code, days = 20) {

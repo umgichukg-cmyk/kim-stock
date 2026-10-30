@@ -1,22 +1,24 @@
 // 종목 분석과 테마 순위 - 여러 API가 같이 씁니다.
 import { THEMES } from "../../config/themes.js";
-import { getQuote, getDailyCandles, getInvestorFlows } from "./naver.js";
+import { getQuote, getDailyCandles, getInvestorFlows, getFundamentals } from "./naver.js";
 import { getDailyChange } from "./yahoo.js";
 import { scoreStock, priceStats } from "./score.js";
 
 // 한 종목의 시세 + 일봉 + 수급 + 점수
 export async function analyzeStock(code, { withCandles = false } = {}) {
-  const [quote, candles, flows] = await Promise.all([
+  const [quote, candles, flows, fundamentals] = await Promise.all([
     getQuote(code),
     getDailyCandles(code),
-    getInvestorFlows(code, 20).catch(() => []), // 수급이 없어도 기술 점수는 계산
+    getInvestorFlows(code, 30).catch(() => []), // 수급이 없어도 기술 점수는 계산
+    getFundamentals(code).catch(() => null), // 재무가 없어도(ETF 등) 나머지는 계산
   ]);
   const stats = priceStats(candles);
-  const score = scoreStock(candles, flows);
+  const score = scoreStock(candles, flows, fundamentals);
   return {
     ...quote,
     score,
     stats,
+    fundamentals: withCandles ? fundamentals : undefined,
     flows: withCandles ? flows : flows.slice(-5),
     candles: withCandles ? candles : undefined,
     spark: candles.slice(-30).map((c) => c.close),
@@ -47,7 +49,13 @@ export async function rankThemes() {
     };
   });
 
-  // 변동성(등락 절댓값 평균) 큰 순서. 데이터가 하나도 없는 테마는 맨 뒤로.
-  themes.sort((a, b) => (b.volatility ?? -1) - (a.volatility ?? -1));
-  return themes;
+  // 상승률(평균 등락) 높은 순서. 데이터가 하나도 없는 테마는 맨 뒤로.
+  themes.sort((a, b) => (b.avgChange ?? -Infinity) - (a.avgChange ?? -Infinity));
+
+  // 기준 거래일: 종목들 중 가장 많이 나온 날짜
+  const counts = {};
+  Object.values(bySymbol).forEach((q) => (counts[q.date] = (counts[q.date] || 0) + 1));
+  const sessionDate = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+  return { themes, sessionDate };
 }

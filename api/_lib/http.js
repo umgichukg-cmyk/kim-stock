@@ -24,11 +24,13 @@ export async function fetchJson(url, { headers = {}, timeout = 8000, retries = 1
   throw lastError;
 }
 
-// "+1,234,567" / "46.15%" 같은 문자열을 숫자로
+// "+1,234,567" / "46.15%" / "189.40배" / "283원" 같은 문자열을 숫자로 ("N/A"는 null)
 export function toNumber(v) {
   if (v == null || v === "") return null;
   if (typeof v === "number") return Number.isFinite(v) ? v : null;
-  const n = Number(String(v).replace(/[,+%\s]/g, ""));
+  const s = String(v).replace(/[^0-9.\-]/g, "");
+  if (!/\d/.test(s)) return null;
+  const n = Number(s);
   return Number.isFinite(n) ? n : null;
 }
 

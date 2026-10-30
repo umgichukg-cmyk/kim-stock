@@ -1,24 +1,34 @@
 // Yahoo Finance 시세 (미국 종목, 지수, 선물, 환율)
 import { fetchJson } from "./http.js";
 
-// 최근 거래일 종가 기준 등락률. 장중이면 현재가 기준.
+// 장이 끝난 마지막 거래일(전일)의 종가 등락률.
+// 지금 미국장이 열려 있으면 진행 중인 오늘 봉은 빼고 그 전날 봉을 씁니다.
 export async function getDailyChange(symbol) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=10d&interval=1d`;
   const j = await fetchJson(url);
   const result = j.chart?.result?.[0];
   if (!result) throw new Error(`Yahoo 데이터 없음: ${symbol}`);
-  const closes = (result.indicators?.quote?.[0]?.close || []).filter((v) => v != null);
-  const price = result.meta?.regularMarketPrice ?? closes.at(-1);
-  // 마지막 봉이 오늘(진행 중) 봉이면 그 이전 종가가 기준
-  const prevClose = closes.length >= 2 ? closes.at(-2) : result.meta?.chartPreviousClose;
-  if (price == null || !prevClose) throw new Error(`Yahoo 가격 없음: ${symbol}`);
+  const meta = result.meta || {};
+  const rawCloses = result.indicators?.quote?.[0]?.close || [];
+  const bars = (result.timestamp || [])
+    .map((t, i) => ({ t, close: rawCloses[i] }))
+    .filter((b) => b.close != null);
+
+  const regular = meta.currentTradingPeriod?.regular;
+  const now = Date.now() / 1000;
+  if (regular && bars.length && bars.at(-1).t >= regular.start && now < regular.end) bars.pop();
+  if (bars.length < 2) throw new Error(`Yahoo 가격 없음: ${symbol}`);
+
+  const last = bars.at(-1);
+  const prev = bars.at(-2);
   return {
     symbol,
-    name: result.meta?.shortName || result.meta?.longName || symbol,
-    price,
-    prevClose,
-    changePct: ((price - prevClose) / prevClose) * 100,
-    time: result.meta?.regularMarketTime ?? null,
+    name: meta.shortName || meta.longName || symbol,
+    price: last.close,
+    prevClose: prev.close,
+    changePct: ((last.close - prev.close) / prev.close) * 100,
+    // 거래일 (뉴욕 기준 YYYY-MM-DD)
+    date: new Date(last.t * 1000).toLocaleDateString("en-CA", { timeZone: meta.exchangeTimezoneName || "America/New_York" }),
   };
 }
 

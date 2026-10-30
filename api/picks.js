@@ -5,8 +5,9 @@ import { sendJson, sendError } from "./_lib/http.js";
 
 export default async function handler(req, res) {
   try {
-    const themes = await rankThemes();
-    const top = themes.filter((t) => t.volatility != null).slice(0, TOP_THEMES);
+    const { themes, sessionDate } = await rankThemes();
+    // 전일 오른 테마만, 상승률 높은 순으로 최대 TOP_THEMES개
+    const top = themes.filter((t) => t.avgChange > 0).slice(0, TOP_THEMES);
 
     const targets = top.flatMap((t) => t.kr.map((k) => ({ ...k, theme: t.name, themeChange: t.avgChange })));
     const settled = await Promise.allSettled(targets.map((k) => analyzeStock(k.code)));
@@ -25,6 +26,7 @@ export default async function handler(req, res) {
       200,
       {
         updatedAt: new Date().toISOString(),
+        sessionDate,
         themes: themes.map(({ kr, ...t }) => ({ ...t, krCount: kr.length })),
         topThemes: top.map((t) => t.name),
         picks,

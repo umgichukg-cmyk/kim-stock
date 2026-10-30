@@ -131,7 +131,7 @@ h2 { margin: 0; font-size: 17px; font-weight: 800; }
 .card-price .num:first-child { font-size: 18px; font-weight: 700; }
 .card-price .chg { font-size: 13px; font-weight: 600; }
 .card-spark { display: block; width: 100%; height: 36px; }
-.split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.split { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 .mini-label { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); }
 .mini-label b { color: var(--text); font-family: "Space Grotesk", sans-serif; }
 .mini-track { height: 6px; margin-top: 3px; border-radius: 3px; background: var(--border); overflow: hidden; }
@@ -167,7 +167,8 @@ h2 { margin: 0; font-size: 17px; font-weight: 800; }
 .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11.5px; font-weight: 500; color: var(--muted); }
 .legend i { display: inline-block; width: 10px; height: 3px; margin-right: 4px; vertical-align: middle; border-radius: 2px; }
 .chart-box { height: 340px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-.score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.score-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.stat small { font-size: 11.5px; font-weight: 600; }
 .score-col { padding: 14px; border-radius: 12px; background: var(--surface-2); }
 .score-col h4 { display: flex; justify-content: space-between; margin: 0 0 10px; font-size: 14px; }
 .score-item { padding: 8px 0; border-top: 1px dashed var(--border); }
@@ -175,14 +176,30 @@ h2 { margin: 0; font-size: 17px; font-weight: 800; }
 .score-item .mini-label { font-size: 12.5px; }
 .score-item p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
 .flow-chart { display: block; width: 100%; height: 180px; }
+.flow-scroll { max-height: 330px; overflow-y: auto; }
+.flow-scroll thead th { position: sticky; top: 0; background: var(--surface); }
+.totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.stat.total b { font-size: 17px; }
+.stat.total i { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 2px; vertical-align: middle; }
 .table-wrap { overflow-x: auto; }
 .flow-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12.5px; }
 .flow-table th, .flow-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
 .flow-table th:first-child, .flow-table td:first-child { text-align: left; }
 .flow-table th { color: var(--muted); font-weight: 500; }
 
+/* ---------- 하단 ---------- */
+.footer { padding: 4px 0 40px; color: var(--muted); font-size: 12.5px; }
+.footer p { margin: 0 0 8px; }
+.family {
+  margin-top: 18px !important; padding: 16px 18px; border-radius: var(--radius);
+  background: var(--accent); color: #fff; text-align: center;
+  font-size: 16px; font-weight: 700; line-height: 1.6;
+}
+.family strong { display: inline-block; margin-top: 4px; font-size: 22px; font-weight: 800; }
+
 @media (max-width: 900px) {
   .market { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .score-grid { grid-template-columns: 1fr; }
   .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {
@@ -194,6 +211,7 @@ h2 { margin: 0; font-size: 17px; font-weight: 800; }
   .theme-row { grid-template-columns: 20px 80px 1fr 60px; gap: 8px; padding: 8px 6px; }
   .score-grid { grid-template-columns: 1fr; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .chart-box { height: 280px; }
   .detail { max-height: calc(100vh - 16px); }
   .detail-inner { padding: 14px; }
