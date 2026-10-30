@@ -93,7 +93,11 @@ h2 { margin: 0; font-size: 17px; font-weight: 800; }
 
 /* ---------- 시장 지표 ---------- */
 .market { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
-.mkt { position: relative; padding: 12px 14px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
+.mkt { position: relative; display: block; width: 100%; padding: 12px 14px 10px; text-align: left; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; transition: transform 0.15s, border-color 0.15s; }
+button.mkt:hover { transform: translateY(-2px); border-color: var(--accent); }
+button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.market-chart { height: 380px; }
+.market-chart.loading { opacity: 0.5; }
 .mkt-name { color: var(--muted); font-size: 12px; font-weight: 500; }
 .mkt-price { font-size: 19px; font-weight: 700; margin-top: 2px; }
 .mkt-chg { font-size: 12.5px; font-weight: 600; }
@@ -194,6 +198,13 @@ h2 { margin: 0; font-size: 17px; font-weight: 800; }
 .score-item:first-of-type { border-top: 0; }
 .score-item .mini-label { font-size: 12.5px; }
 .score-item p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+.news { margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.news li + li { border-top: 1px solid var(--border); }
+.news a { display: block; padding: 10px 14px; color: var(--text); text-decoration: none; }
+.news a:hover { background: var(--surface-2); }
+.news a:hover .news-title { color: var(--accent); }
+.news-title { display: block; font-weight: 600; line-height: 1.45; }
+.news-meta { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
 .flow-chart { display: block; width: 100%; height: 180px; }
 .flow-scroll { max-height: 330px; overflow-y: auto; }
 .flow-scroll thead th { position: sticky; top: 0; background: var(--surface); }
@@ -231,7 +242,7 @@ h2 { margin: 0; font-size: 17px; font-weight: 800; }
   .score-grid { grid-template-columns: 1fr; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .chart-box { height: 280px; }
+  .chart-box, .market-chart { height: 300px; }
   .detail { max-height: calc(100vh - 16px); }
   .detail-inner { padding: 14px; }
 }

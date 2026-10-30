@@ -81,15 +81,15 @@ function renderMarket(items) {
   $("#market").innerHTML = items
     .map((m) => {
       if (!m.ok) {
-        return `<div class="mkt"><div class="mkt-name">${esc(m.name)}</div><div class="mkt-price flat">-</div><div class="mkt-chg flat">불러오지 못함</div></div>`;
+        return `<button class="mkt" data-market="${esc(m.id)}"><div class="mkt-name">${esc(m.name)}</div><div class="mkt-price flat">-</div><div class="mkt-chg flat">불러오지 못함</div></button>`;
       }
       const d = dir(m.changePct);
-      return `<div class="mkt">
+      return `<button class="mkt" data-market="${esc(m.id)}" title="${esc(m.name)} 상세 차트 보기">
         <div class="mkt-name">${esc(m.name)}</div>
         <div class="mkt-price num">${num(m.price)}${m.unit ? `<small> ${m.unit}</small>` : ""}</div>
         <div class="mkt-chg num ${d}">${arrow(m.changePct)} ${num(Math.abs(m.change ?? 0))} (${pct(m.changePct)})</div>
         ${sparkline(m.points, { base: m.prevClose })}
-      </div>`;
+      </button>`;
     })
     .join("");
 }
@@ -283,6 +283,35 @@ function scoreColumn(title, part) {
     )
     .join("");
   return `<div class="score-col"><h4><span>${title}</span><span class="num">${part.score} / ${part.max}</span></h4>${items}</div>`;
+}
+
+// 기사 시각: 1시간 안이면 "N분 전", 오늘이면 "N시간 전", 그 외에는 날짜
+function newsTime(iso) {
+  const t = new Date(iso);
+  const diff = (Date.now() - t.getTime()) / 60000;
+  if (diff < 60) return `${Math.max(1, Math.round(diff))}분 전`;
+  if (diff < 24 * 60) return `${Math.round(diff / 60)}시간 전`;
+  return `${t.getMonth() + 1}.${t.getDate()} ${t.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
+}
+
+async function loadNews(code) {
+  const box = $("#news-section");
+  try {
+    const { items } = await getJson(`/api/news?code=${encodeURIComponent(code)}`);
+    if (!box.isConnected) return; // 그 사이 다른 종목을 열었으면 무시
+    box.innerHTML = items.length
+      ? `<ul class="news">${items
+          .map(
+            (n) => `<li><a href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">
+              <span class="news-title">${esc(n.title)}</span>
+              <span class="news-meta">${esc(n.press)} · ${newsTime(n.time)}${n.related ? ` · 관련 기사 ${n.related}건` : ""}</span>
+            </a></li>`
+          )
+          .join("")}</ul>`
+      : `<p class="sub">최근 관련 뉴스가 없어요.</p>`;
+  } catch (e) {
+    if (box.isConnected) box.innerHTML = `<p class="sub">뉴스를 불러오지 못했어요. (${esc(e.message)})</p>`;
+  }
 }
 
 function fundamentalsSection(f, price) {
@@ -519,6 +548,9 @@ async function openDetail(code) {
     <div class="legend" style="margin-bottom:6px"><span><i style="background:#f2a01d"></i>5일선</span><span><i style="background:var(--institution)"></i>20일선</span><span><i style="background:var(--individual)"></i>60일선</span><span><i style="background:var(--muted)"></i>20일 VWAP</span></div>
     <div class="chart-box" id="candle-chart"></div>
 
+    <div class="section-title"><span>관련 뉴스</span><span class="sub">네이버 뉴스 · 누르면 원문이 새 창으로 열려요</span></div>
+    <div id="news-section"><div class="skeleton" style="height:120px"></div></div>
+
     <div class="section-title"><span>점수 근거 · 종합 ${s.score.total ?? "-"}점</span>${s.score.complete ? "" : `<span class="sub">일부 항목은 데이터가 없어 제외하고 환산했어요</span>`}</div>
     <div class="score-grid">${scoreColumn("기술", s.score.technical)}${scoreColumn("수급", s.score.supply)}${scoreColumn("기본", s.score.basic)}</div>
 
@@ -528,6 +560,7 @@ async function openDetail(code) {
     <p class="sub" style="margin-top:10px">순매수 금액 = 순매수 수량 × 그날 종가(추정치). ${timeLabel(new Date(s.updatedAt))} 기준.</p>
   `;
 
+  loadNews(code);
   renderFlows(s.flows, 20);
   $("#flow-section").addEventListener("click", (e) => {
     const btn = e.target.closest("[data-days]");
@@ -545,11 +578,125 @@ async function openDetail(code) {
   });
 }
 
+// ---------- 시장 지표 상세 차트 ----------
+
+const MARKET_RANGES = [
+  ["1d", "1일"],
+  ["5d", "5일"],
+  ["1mo", "1개월"],
+  ["3mo", "3개월"],
+  ["1y", "1년"],
+  ["5y", "5년"],
+];
+
+function drawMarketChart(el, data) {
+  if (chart) chart.remove();
+  chart = null;
+  if (!window.LightweightCharts) {
+    el.innerHTML = `<div class="state">차트 라이브러리를 불러오지 못했어요.</div>`;
+    return;
+  }
+  const up = css("--up");
+  const down = css("--down");
+  chart = window.LightweightCharts.createChart(el, {
+    autoSize: true,
+    layout: { background: { color: css("--surface") }, textColor: css("--muted"), fontFamily: "Noto Sans KR" },
+    grid: { vertLines: { color: css("--border") }, horzLines: { color: css("--border") } },
+    rightPriceScale: { borderColor: css("--border") },
+    timeScale: { borderColor: css("--border"), timeVisible: data.intraday, secondsVisible: false },
+    handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+    handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true },
+    localization: { priceFormatter: (p) => num(p) },
+  });
+  const series = chart.addCandlestickSeries({ upColor: up, downColor: down, borderVisible: false, wickUpColor: up, wickDownColor: down });
+  series.setData(data.candles.map(({ time, open, high, low, close }) => ({ time, open, high, low, close })));
+  if (data.range === "1d" && data.prevClose) {
+    series.createPriceLine({ price: data.prevClose, color: css("--muted"), lineStyle: 2, lineWidth: 1, axisLabelVisible: true, title: "전일 종가" });
+  }
+  if (data.candles.some((c) => c.volume > 0)) {
+    const vol = chart.addHistogramSeries({ priceScaleId: "vol", priceFormat: { type: "volume" }, lastValueVisible: false, priceLineVisible: false });
+    chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+    vol.setData(data.candles.map((c) => ({ time: c.time, value: c.volume, color: `${c.close >= c.open ? up : down}66` })));
+  }
+  chart.timeScale().fitContent();
+}
+
+let marketSeq = 0;
+
+async function openMarket(id, range = "1d") {
+  const seq = ++marketSeq;
+  const dlg = $("#detail");
+  const body = $("#detail-body");
+  if (!dlg.open) {
+    body.innerHTML = `<div class="detail-head"><div class="skeleton" style="width:220px;height:56px"></div><button class="close-btn" data-close aria-label="닫기">×</button></div>
+      <div class="skeleton" style="height:380px;margin-top:16px"></div>`;
+    dlg.showModal();
+  } else {
+    $("#market-chart")?.classList.add("loading");
+  }
+
+  let m;
+  try {
+    m = await getJson(`/api/chart?id=${encodeURIComponent(id)}&range=${range}`);
+    // 기다리는 사이 다른 기간을 눌렀거나 창을 닫았으면 이 응답은 버림
+    if (seq !== marketSeq || !dlg.open) return;
+  } catch (e) {
+    if (seq !== marketSeq || !dlg.open) return;
+    body.innerHTML = `<div class="detail-head"><h3 id="detail-title">시장 지표</h3><button class="close-btn" data-close aria-label="닫기">×</button></div>
+      <div class="state">차트를 불러오지 못했어요.<br><small>${esc(e.message)}</small><br><button data-market-retry="${esc(id)}">다시 시도</button></div>`;
+    return;
+  }
+
+  const c = m.candles;
+  // 1일은 전일 종가 대비, 그 외는 기간 첫 봉 시가 대비
+  const base = range === "1d" ? m.prevClose : c[0]?.open;
+  const change = m.price != null && base ? m.price - base : null;
+  const changePct = change != null ? (change / base) * 100 : null;
+  const hi = c.length ? Math.max(...c.map((x) => x.high)) : null;
+  const lo = c.length ? Math.min(...c.map((x) => x.low)) : null;
+  const unit = m.unit ? ` ${m.unit}` : "";
+  const label = MARKET_RANGES.find(([r]) => r === range)[1];
+
+  body.innerHTML = `
+    <div class="detail-head">
+      <div>
+        <h3 id="detail-title">${esc(m.name)}</h3>
+        <div class="card-meta">${esc(m.symbol)}${m.exchange ? ` · ${esc(m.exchange)}` : ""} · 시각은 한국 시간</div>
+        <div class="detail-price"><span class="num">${num(m.price)}${unit}</span><span class="num ${dir(changePct)}">${arrow(changePct)} ${num(Math.abs(change ?? 0))} (${pct(changePct)}) <small class="sub">${range === "1d" ? "전일 대비" : `${label} 동안`}</small></span></div>
+      </div>
+      <button class="close-btn" data-close aria-label="닫기">×</button>
+    </div>
+    <div class="section-title">
+      <span>차트 · ${m.intraday ? `${m.interval.replace("m", "분")}봉` : m.interval === "1wk" ? "주봉" : "일봉"}</span>
+      <div class="chips">${MARKET_RANGES.map(([r, l]) => `<button class="chip" data-market-range="${r}" data-market-id="${esc(id)}" aria-selected="${r === range}">${l}</button>`).join("")}</div>
+    </div>
+    <div class="chart-box market-chart" id="market-chart"></div>
+    <div class="stats">
+      ${statBox(range === "1d" ? "전일 종가" : "기간 시작", num(base))}
+      ${statBox(`${label} 고가`, num(hi))}
+      ${statBox(`${label} 저가`, num(lo))}
+      ${statBox("52주 최고", num(m.high52))}
+      ${statBox("52주 최저", num(m.low52))}
+      ${statBox("봉 개수", `${c.length.toLocaleString()}개`)}
+    </div>
+    <p class="sub">데이터: Yahoo Finance · 지연될 수 있어요. 차트는 드래그로 이동, 두 손가락으로 확대할 수 있어요.</p>`;
+
+  if (c.length) drawMarketChart($("#market-chart"), m);
+  else $("#market-chart").innerHTML = `<div class="state">이 기간에는 데이터가 없어요.</div>`;
+}
+
 // ---------- 이벤트 ----------
 
 document.addEventListener("click", (e) => {
   const card = e.target.closest(".card[data-code]");
   if (card) return openDetail(card.dataset.code);
+
+  const mkt = e.target.closest(".mkt[data-market]");
+  if (mkt) return openMarket(mkt.dataset.market);
+  const range = e.target.closest("[data-market-range]");
+  if (range) return openMarket(range.dataset.marketId, range.dataset.marketRange);
+  const retry = e.target.closest("[data-market-retry]");
+  if (retry) return openMarket(retry.dataset.marketRetry);
 
   const chip = e.target.closest("#theme-filter [data-theme]");
   if (chip) {

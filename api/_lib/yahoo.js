@@ -32,6 +32,45 @@ export async function getDailyChange(symbol) {
   };
 }
 
+// 기간별 봉 데이터 (상세 차트용). time은 한국 시간으로 보이도록 +9시간 한 유닉스 초
+export const CHART_RANGES = {
+  "1d": "5m",
+  "5d": "15m",
+  "1mo": "1d",
+  "3mo": "1d",
+  "1y": "1d",
+  "5y": "1wk",
+};
+
+export async function getCandles(symbol, range) {
+  const interval = CHART_RANGES[range];
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
+  const j = await fetchJson(url);
+  const result = j.chart?.result?.[0];
+  if (!result) throw new Error(`Yahoo 데이터 없음: ${symbol}`);
+  const meta = result.meta || {};
+  const q = result.indicators?.quote?.[0] || {};
+  const KST = 9 * 3600;
+  const candles = (result.timestamp || [])
+    .map((t, i) => ({ time: t + KST, open: q.open?.[i], high: q.high?.[i], low: q.low?.[i], close: q.close?.[i], volume: q.volume?.[i] ?? 0 }))
+    .filter((c) => c.open != null && c.close != null && c.high != null && c.low != null);
+  return {
+    symbol,
+    range,
+    interval,
+    intraday: /m$/.test(interval),
+    price: meta.regularMarketPrice ?? candles.at(-1)?.close ?? null,
+    prevClose: meta.chartPreviousClose ?? meta.previousClose ?? null,
+    dayHigh: meta.regularMarketDayHigh ?? null,
+    dayLow: meta.regularMarketDayLow ?? null,
+    high52: meta.fiftyTwoWeekHigh ?? null,
+    low52: meta.fiftyTwoWeekLow ?? null,
+    exchange: meta.fullExchangeName || meta.exchangeName || null,
+    time: meta.regularMarketTime ?? null,
+    candles,
+  };
+}
+
 // 당일 5분봉 흐름 (작은 선 그래프용)
 export async function getIntraday(symbol) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=5m`;

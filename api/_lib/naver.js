@@ -31,6 +31,37 @@ export async function listMarket(market) {
   return all;
 }
 
+// 종목 관련 뉴스. 같은 사건 기사 묶음마다 대표 기사 1개 + 관련 기사 수
+// 기사 본문은 저작권 때문에 가져오지 않고 제목·언론사·시각·원문 주소만 씀
+const decodeEntities = (s) =>
+  String(s)
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+
+export async function getNews(code, count = 10) {
+  const groups = await fetchJson(`https://m.stock.naver.com/api/news/stock/${code}?pageSize=${count}&page=1`, {
+    headers: REFERER,
+  });
+  if (!Array.isArray(groups)) return [];
+  return groups
+    .map((g) => {
+      const a = g.items?.[0];
+      if (!a?.title) return null;
+      const d = String(a.datetime); // YYYYMMDDHHmm
+      return {
+        title: decodeEntities(a.titleFull || a.title),
+        press: decodeEntities(a.officeName),
+        time: `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T${d.slice(8, 10)}:${d.slice(10, 12)}:00+09:00`,
+        url: a.mobileNewsUrl || `https://n.news.naver.com/mnews/article/${a.officeId}/${a.articleId}`,
+        related: Math.max(0, (g.total ?? g.items.length) - 1),
+      };
+    })
+    .filter(Boolean);
+}
+
 // 종목명(또는 코드 일부)으로 국내 종목 찾기
 export async function searchStocks(query, limit = 10) {
   const url = `https://ac.stock.naver.com/ac?q=${encodeURIComponent(query)}&target=stock`;
