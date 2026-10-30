@@ -21,8 +21,9 @@
         <span>김가네 주식</span>
       </a>
       <form class="search" id="search-form" role="search">
-        <input id="search-input" inputmode="numeric" maxlength="6" placeholder="종목코드로 분석 (예: 005930)" aria-label="종목코드">
+        <input id="search-input" maxlength="30" autocomplete="off" placeholder="종목명 또는 코드 (예: 삼성전자, 005930)" aria-label="종목명 또는 종목코드" role="combobox" aria-expanded="false" aria-controls="suggest">
         <button type="submit">분석</button>
+        <ul class="suggest" id="suggest" role="listbox" hidden></ul>
       </form>
       <div class="topbar-actions">
         <span class="updated" id="updated">불러오는 중…</span>

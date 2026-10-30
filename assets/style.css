@@ -67,7 +67,17 @@ h2 { margin: 0; font-size: 17px; font-weight: 800; }
 .topbar-inner { display: flex; align-items: center; gap: 16px; height: 60px; }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 17px; color: var(--text); text-decoration: none; white-space: nowrap; }
 .brand-mark { width: 26px; height: 26px; border-radius: 8px; background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M7 22l6-7 4 4 8-9' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat; }
-.search { flex: 1; display: flex; max-width: 360px; margin-left: auto; }
+.search { position: relative; flex: 1; display: flex; max-width: 360px; margin-left: auto; }
+.suggest {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 20;
+  margin: 0; padding: 4px; list-style: none; max-height: 320px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.suggest li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.suggest li[aria-selected="true"], .suggest li:hover { background: var(--surface-2); }
+.suggest li b { font-weight: 700; }
+.suggest li span { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.suggest .empty { color: var(--muted); cursor: default; }
 .search input {
   flex: 1; min-width: 0; height: 36px; padding: 0 12px;
   border: 1px solid var(--border); border-right: 0; border-radius: 10px 0 0 10px; background: var(--surface);

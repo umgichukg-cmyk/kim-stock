@@ -520,17 +520,104 @@ $("#detail").addEventListener("close", () => {
 
 $("#refresh-btn").addEventListener("click", () => load({ quiet: true }));
 
-$("#search-form").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const code = $("#search-input").value.trim();
-  if (!/^\d{6}$/.test(code)) {
-    $("#search-input").setCustomValidity("6자리 숫자 종목코드를 입력하세요");
-    $("#search-input").reportValidity();
+// ---------- 종목 검색 (이름 또는 코드) ----------
+
+const isCode = (s) => /^[0-9A-Z]{6}$/i.test(s) && /\d/.test(s);
+const search = { items: [], active: -1, timer: null, seq: 0 };
+
+function closeSuggest() {
+  $("#suggest").hidden = true;
+  $("#search-input").setAttribute("aria-expanded", "false");
+  search.active = -1;
+}
+
+function renderSuggest(message) {
+  const list = $("#suggest");
+  list.innerHTML = message
+    ? `<li class="empty">${esc(message)}</li>`
+    : search.items
+        .map(
+          (s, i) => `<li role="option" data-code="${esc(s.code)}" aria-selected="${i === search.active}">
+            <b>${esc(s.name)}</b><span>${esc(s.code)} · ${esc(s.market)}</span></li>`
+        )
+        .join("");
+  list.hidden = false;
+  $("#search-input").setAttribute("aria-expanded", "true");
+}
+
+async function fetchSuggest(q) {
+  const seq = ++search.seq;
+  try {
+    const { items } = await getJson(`/api/search?q=${encodeURIComponent(q)}`);
+    if (seq !== search.seq) return null; // 더 최근 입력이 있으면 무시
+    search.items = items;
+    search.active = items.length ? 0 : -1;
+    return items;
+  } catch {
+    if (seq === search.seq) search.items = [];
+    return [];
+  }
+}
+
+function pick(code) {
+  closeSuggest();
+  $("#search-input").value = "";
+  $("#search-input").blur();
+  openDetail(code.toUpperCase());
+}
+
+$("#search-input").addEventListener("input", (e) => {
+  const q = e.target.value.trim();
+  clearTimeout(search.timer);
+  if (!q) return closeSuggest();
+  search.timer = setTimeout(async () => {
+    const items = await fetchSuggest(q);
+    if (items == null) return;
+    if (items.length) renderSuggest();
+    else renderSuggest(isCode(q) ? "Enter를 누르면 이 코드로 분석해요" : "검색 결과가 없어요");
+  }, 200);
+});
+
+$("#search-input").addEventListener("keydown", (e) => {
+  if ($("#suggest").hidden || !search.items.length) {
+    if (e.key === "Escape") closeSuggest();
     return;
   }
-  openDetail(code);
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    const n = search.items.length;
+    search.active = (search.active + (e.key === "ArrowDown" ? 1 : n - 1)) % n;
+    renderSuggest();
+  } else if (e.key === "Escape") {
+    closeSuggest();
+  }
 });
-$("#search-input").addEventListener("input", (e) => e.target.setCustomValidity(""));
+
+$("#suggest").addEventListener("mousedown", (e) => {
+  const li = e.target.closest("li[data-code]");
+  if (li) {
+    e.preventDefault(); // 입력창 blur보다 먼저 처리
+    pick(li.dataset.code);
+  }
+});
+
+$("#search-input").addEventListener("blur", () => setTimeout(closeSuggest, 100));
+
+$("#search-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const q = $("#search-input").value.trim();
+  if (!q) return;
+  // 목록에서 고른 항목 → 정확한 코드 → 검색 첫 결과 순서
+  if (!$("#suggest").hidden && search.items[search.active]) return pick(search.items[search.active].code);
+  if (isCode(q)) return pick(q);
+  clearTimeout(search.timer);
+  const items = await fetchSuggest(q);
+  if (items?.length) {
+    const exact = items.find((s) => s.name === q);
+    return pick((exact || items[0]).code);
+  }
+  renderSuggest("검색 결과가 없어요");
+});
 
 // 화면이 보일 때만 자동 새로고침
 setInterval(() => {

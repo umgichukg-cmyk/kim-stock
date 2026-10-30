@@ -10,6 +10,16 @@ function ymd(date) {
   return `${y}${m}${d}`;
 }
 
+// 종목명(또는 코드 일부)으로 국내 종목 찾기
+export async function searchStocks(query, limit = 10) {
+  const url = `https://ac.stock.naver.com/ac?q=${encodeURIComponent(query)}&target=stock`;
+  const j = await fetchJson(url, { headers: REFERER });
+  return (j.items || [])
+    .filter((i) => i.nationCode === "KOR" && i.code)
+    .slice(0, limit)
+    .map((i) => ({ code: i.code, name: i.name, market: i.typeName || i.typeCode }));
+}
+
 // 현재가 / 전일대비 / 종목명
 export async function getQuote(code) {
   const j = await fetchJson(`https://m.stock.naver.com/api/stock/${code}/basic`, { headers: REFERER, retries: 0 }).catch(

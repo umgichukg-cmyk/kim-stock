@@ -48,8 +48,8 @@ export function sendError(res, e, extra = {}) {
   sendJson(res, 502, { error: e?.message || String(e), ...extra });
 }
 
-// 6자리 종목코드 검증
+// 6자리 종목코드 검증 (신규 ETF 등은 0162Z0처럼 영문이 섞임)
 export function cleanCode(code) {
-  const c = String(code ?? "").trim();
-  return /^\d{6}$/.test(c) ? c : null;
+  const c = String(code ?? "").trim().toUpperCase();
+  return /^[0-9A-Z]{6}$/.test(c) && /\d/.test(c) ? c : null;
 }
