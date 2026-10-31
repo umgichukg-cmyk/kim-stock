@@ -675,7 +675,7 @@ async function openDetail(code) {
     <div class="detail-head">
       <div>
         <h3 id="detail-title">${esc(s.name)} ${ring(s.score.total, s.score.grade).replace('class="ring"', 'class="ring" style="display:inline-block;vertical-align:middle;margin-left:8px"')}</h3>
-        <div class="card-meta">${esc(s.code)} · ${esc(s.market)}${pick ? ` · <span class="tag">${esc(pick.theme)}</span> 미국 테마 ${pct(pick.themeChange)}` : ""} · ${s.marketStatus === "OPEN" ? "장중" : "장 마감"}</div>
+        <div class="card-meta">${esc(s.code)} · ${esc(s.market)}${pick ? ` · <span class="tag">${esc(pick.theme)}</span> 미국 테마 ${pct(pick.themeChange)}` : ""} · ${s.marketStatus === "OPEN" ? "장중" : "장 마감"}${st.days < 90 ? ` · <b>상장 후 ${st.days}거래일</b>` : ""}</div>
         <div class="detail-price"><span class="num">${won(s.price)}원</span><span class="num ${d}">${arrow(s.changePct)} ${won(Math.abs(s.change ?? 0))} (${pct(s.changePct)})</span></div>
       </div>
       <button class="close-btn" data-close aria-label="닫기">×</button>
@@ -705,7 +705,13 @@ async function openDetail(code) {
     <div class="section-title"><span>관련 뉴스</span><span class="sub">네이버 뉴스 · 누르면 원문이 새 창으로 열려요</span></div>
     <div id="news-section"><div class="skeleton" style="height:120px"></div></div>
 
-    <div class="section-title"><span>점수 근거 · 종합 ${s.score.total ?? "-"}점</span>${s.score.complete ? "" : `<span class="sub">일부 항목은 데이터가 없어 제외하고 환산했어요</span>`}</div>
+    <div class="section-title"><span>점수 근거 · ${s.score.total == null ? "종합 점수 없음" : `종합 ${s.score.total}점`}</span>${
+      s.score.total == null
+        ? `<span class="sub">계산할 수 있는 항목이 100점 중 ${s.score.available}점뿐이라 종합 점수를 내지 않았어요</span>`
+        : s.score.complete
+          ? ""
+          : `<span class="sub">일부 항목은 데이터가 없어 제외하고 환산했어요</span>`
+    }</div>
     <div class="score-grid">${scoreColumn("기술", s.score.technical)}${scoreColumn("수급", s.score.supply)}${scoreColumn("기본", s.score.basic)}</div>
 
     ${fundamentalsSection(s.fundamentals, s.price)}

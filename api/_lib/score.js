@@ -35,6 +35,7 @@ export function rsi(closes, period = 14) {
 
 // 거래량 가중 평균가: Σ(종가×거래량) / Σ거래량
 export function vwap(candles, days) {
+  if (candles.length < days) return null; // 기간만큼 데이터가 없으면 계산하지 않음
   const slice = candles.slice(-days);
   const vol = slice.reduce((s, c) => s + c.volume, 0);
   if (!vol) return null;
@@ -230,6 +231,9 @@ function stabilityItem(f) {
 
 // ---------- 종합 ----------
 
+// 종합 점수를 내려면 100점 중 이만큼은 계산할 수 있어야 함
+const MIN_AVAILABLE = 60;
+
 export function scoreStock(candles, flows, fundamentals) {
   const closes = candles.map((c) => c.close);
 
@@ -251,11 +255,13 @@ export function scoreStock(candles, flows, fundamentals) {
   const groups = [technical, supply, basic];
   const raw = groups.reduce((s, g) => s + sum(g), 0);
   const available = groups.reduce((s, g) => s + maxOf(g), 0);
-  // 계산 가능한 항목만으로 100점 환산
-  const total = available ? Math.round((raw / available) * 100) : null;
+  // 계산 가능한 항목만으로 100점 환산. 단, 계산 가능한 배점이 너무 적으면(신규 상장 등)
+  // 몇 개 항목만으로 점수가 부풀려지므로 종합 점수를 내지 않음
+  const total = available >= MIN_AVAILABLE ? Math.round((raw / available) * 100) : null;
 
   return {
     total,
+    available,
     grade: total == null ? "데이터 부족" : total >= 75 ? "강함" : total >= 60 ? "양호" : total >= 45 ? "보통" : "약함",
     technical: { score: sum(technical), max: maxOf(technical), items: technical },
     supply: { score: sum(supply), max: maxOf(supply), items: supply },
@@ -267,13 +273,16 @@ export function scoreStock(candles, flows, fundamentals) {
 // 가격 요약: 기간 수익률, 고가/저가, VWAP
 export function priceStats(candles) {
   const last = candles.at(-1)?.close ?? null;
+  // 90일 지표는 일봉이 90개 이상일 때만 (신규 상장 종목은 상장 후 기간이라 이름과 맞지 않음)
+  const full = candles.length >= 90;
   const span = candles.slice(-90);
   const first = span[0]?.close;
   const closes = candles.map((c) => c.close);
   return {
-    return90: first && last ? ((last - first) / first) * 100 : null,
-    high90: span.length ? Math.max(...span.map((c) => c.high)) : null,
-    low90: span.length ? Math.min(...span.map((c) => c.low)) : null,
+    days: candles.length,
+    return90: full && first && last ? ((last - first) / first) * 100 : null,
+    high90: full ? Math.max(...span.map((c) => c.high)) : null,
+    low90: full ? Math.min(...span.map((c) => c.low)) : null,
     vwap5: vwap(candles, 5),
     vwap20: vwap(candles, 20),
     ma5: sma(closes, 5).at(-1),
