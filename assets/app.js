@@ -316,16 +316,57 @@ async function loadBriefing() {
 // ---------- 한국 시장 브리핑 탭 ----------
 
 let krLoaded = 0;
+let krData = null;
 
-function rankList(title, items, value) {
+// 순위 목록. attrs가 속성을 돌려주면 누를 수 있는 버튼으로 (기본: 종목코드 → 상세 분석)
+function rankList(title, items, value, attrs = (s) => (s.code ? `data-code="${esc(s.code)}"` : "")) {
   if (!items?.length) return `<div><p class="col-title">${title}</p><p class="sub">데이터 없음</p></div>`;
-  return `<div><p class="col-title">${title}</p><ol class="rank-list">${items
-    .map(
-      (s, i) => `<li>${s.code ? `<button data-code="${esc(s.code)}">` : "<div>"}
+  return `<div>${title ? `<p class="col-title">${title}</p>` : ""}<ol class="rank-list">${items
+    .map((s, i) => {
+      const a = attrs(s, i);
+      return `<li>${a ? `<button ${a}>` : "<div>"}
         <span class="rn">${i + 1}</span><span class="nm">${esc(s.name)}</span>${value(s)}
-      ${s.code ? "</button>" : "</div>"}</li>`
-    )
+      ${a ? "</button>" : "</div>"}</li>`;
+    })
     .join("")}</ol></div>`;
+}
+
+// 종합 점수 색 상자
+function scoreBadge(s) {
+  const t = s.score?.total;
+  if (t == null) return `<span class="sc na" title="${esc(s.score?.grade || "점수 없음")}">-</span>`;
+  const level = t >= 75 ? "hi" : t >= 60 ? "good" : t >= 45 ? "mid" : "low";
+  return `<span class="sc ${level}" title="종합 ${t}점 · ${esc(s.score.grade)}">${t}</span>`;
+}
+
+const capLabel = (eok) => (eok == null ? "-" : eok >= 10000 ? `${(eok / 10000).toFixed(1)}조` : `${Math.round(eok).toLocaleString("ko-KR")}억`);
+
+// 업종을 누르면 대표 종목 창
+function openIndustry(key) {
+  const [side, idx] = key.split("-");
+  const g = krData?.industries?.[side]?.[Number(idx)];
+  if (!g) return;
+  const d = krData.basisDate;
+  $("#detail-body").innerHTML = `
+    <div class="detail-head">
+      <div>
+        <h3 id="detail-title">${esc(g.name)} <span class="num ${dir(g.changePct)}" style="font-size:18px">${pct(g.changePct)}</span></h3>
+        <div class="card-meta">${d.slice(4, 6)}/${d.slice(6, 8)} 장 마감 기준 · 업종 ${g.count}종목 중 상승 ${g.up} · 하락 ${g.down}</div>
+      </div>
+      <button class="close-btn" data-close aria-label="닫기">×</button>
+    </div>
+    <div class="section-title"><span>대표 종목 (시가총액 순)</span><span class="sub">색 상자는 종합 점수 · 종목을 누르면 상세 분석</span></div>
+    ${
+      g.members?.length
+        ? rankList(
+            "",
+            g.members,
+            (s) => `<span class="vl" style="color:var(--muted)">${capLabel(s.marketValue)}</span>${scoreBadge(s)}<span class="vl ${dir(s.changePct)}">${pct(s.changePct)}</span>`
+          )
+        : `<p class="sub">대표 종목 데이터가 없어요.</p>`
+    }
+    <p class="sub" style="margin-top:10px">업종 등락률은 네이버가 계산한 업종 평균이라, 그날 상장한 종목처럼 목록에 없는 종목이 크게 움직이면 대표 종목 흐름과 다를 수 있어요.</p>`;
+  if (!$("#detail").open) $("#detail").showModal();
 }
 
 async function loadKrBriefing() {
@@ -334,6 +375,7 @@ async function loadKrBriefing() {
   try {
     const b = await getJson("/api/kr-briefing");
     krLoaded = Date.now();
+    krData = b;
     const d = b.basisDate;
     const date = new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T12:00:00`);
     $("#kr-title").textContent = `${date.getMonth() + 1}/${date.getDate()}(${"일월화수목금토"[date.getDay()]}) 한국 시장 브리핑`;
@@ -369,19 +411,16 @@ async function loadKrBriefing() {
     // 업종
     const pctVal = (s) => `<span class="vl ${dir(s.changePct)}">${pct(s.changePct)}</span>`;
     if (b.industries) {
-      $("#kr-ind-sub").textContent = `네이버 업종 분류 ${b.industries.count}개 중`;
-      $("#kr-industries").innerHTML = rankList("많이 오른 업종", b.industries.top, pctVal) + rankList("많이 내린 업종", b.industries.bottom, pctVal);
+      $("#kr-ind-sub").textContent = `네이버 업종 분류 ${b.industries.count}개 중 · 업종을 누르면 대표 종목`;
+      $("#kr-industries").innerHTML =
+        rankList("많이 오른 업종", b.industries.top, pctVal, (g, i) => `data-industry="top-${i}"`) +
+        rankList("많이 내린 업종", b.industries.bottom, pctVal, (g, i) => `data-industry="bottom-${i}"`);
     } else {
       $("#kr-industries").innerHTML = `<p class="sub">이번 계산은 장중에 실행돼서 업종 데이터를 넣지 않았어요.</p>`;
     }
 
     // 많이 움직인 종목 (종합 점수 함께)
-    const scoreVal = (s) => {
-      const t = s.score?.total;
-      if (t == null) return `<span class="sc na" title="${esc(s.score?.grade || "점수 없음")}">-</span>`;
-      const level = t >= 75 ? "hi" : t >= 60 ? "good" : t >= 45 ? "mid" : "low";
-      return `<span class="sc ${level}" title="종합 ${t}점 · ${esc(s.score.grade)}">${t}</span>`;
-    };
+    const scoreVal = scoreBadge;
     $("#kr-movers").innerHTML =
       rankList("상승률 상위", b.movers.gainers, (s) => scoreVal(s) + pctVal(s)) +
       rankList("하락률 상위", b.movers.losers, (s) => scoreVal(s) + pctVal(s)) +
@@ -401,7 +440,214 @@ async function loadKrBriefing() {
   }
 }
 
-const VIEWS = ["themes", "top30", "briefing", "krbriefing"];
+// ---------- 상한가·하한가 탭 ----------
+
+let limitsLoaded = 0;
+
+async function loadLimits() {
+  if (Date.now() - limitsLoaded < 600_000) return;
+  $("#limits").innerHTML = `<div class="skeleton" style="height:160px"></div><div class="skeleton" style="height:160px"></div>`;
+  try {
+    const b = await getJson("/api/kr-briefing");
+    limitsLoaded = Date.now();
+    const d = b.basisDate;
+    const date = new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T12:00:00`);
+    $("#limits-title").textContent = `${date.getMonth() + 1}/${date.getDate()}(${"일월화수목금토"[date.getDay()]}) 상한가·하한가`;
+    // 많이 움직인 종목과 같은 모양: 순위 · 종목명 · 거래대금 · 종합 점수 · 등락률
+    const val = (s) => `<span class="vl" style="color:var(--muted)">${s.value.toLocaleString("ko-KR")}억</span>${scoreBadge(s)}<span class="vl ${dir(s.changePct)}">${pct(s.changePct)}</span>`;
+    const empty = (label) => `<div><p class="col-title">${label}</p><p class="sub">${label} 마감 종목이 없어요.</p></div>`;
+    const up = b.limits?.upper || [];
+    const down = b.limits?.lower || [];
+    $("#limits").innerHTML =
+      (up.length ? rankList(`상한가 ${up.length}종목`, up, val) : empty("상한가")) +
+      (down.length ? rankList(`하한가 ${down.length}종목`, down, val) : empty("하한가"));
+  } catch (e) {
+    $("#limits").innerHTML = `<div class="state">불러오지 못했어요.<br><small>${esc(e.message)}</small><br><button data-limits-retry>다시 시도</button></div>`;
+  }
+}
+
+// ---------- 한국 테마 흐름 탭 ----------
+
+let krThemesLoaded = 0;
+let krThemes = null;
+
+// 테마 배지: NEW(새로 생긴 테마) / 전환(오늘 방향이 바뀜) + 연속 상승·하락 일수 (3일 이상은 색을 채움)
+function themeStreak(t) {
+  let out = "";
+  if (t.isNew) out += `<span class="tbadge new" title="네이버에 새로 생긴 테마 (처음 본 날 ${esc(fmtYmd(t.firstSeen))})">NEW</span>`;
+  else if (t.turned) out += `<span class="tbadge turn" title="전날과 반대로 움직임 (${t.streak.dir === "up" ? "하락→상승" : "상승→하락"})">전환</span>`;
+  const s = t.streak;
+  if (s) {
+    const word = s.dir === "up" ? "상승" : "하락";
+    out += `<span class="streak ${s.dir}${s.days >= 3 ? " hot" : ""}" title="거래일 기준 ${s.days}일 연속 ${word}">연속 ${s.days}일</span>`;
+  }
+  return out;
+}
+
+const fmtYmd = (d) => (d ? `${d.slice(4, 6)}/${d.slice(6, 8)}` : "");
+
+function renderKrThemes() {
+  if (!krThemes) return;
+  const q = $("#krthemes-search").value.trim().toLowerCase();
+  const list = krThemes.themes.filter((t) => !q || t.name.toLowerCase().includes(q));
+  const up = list.filter((t) => t.changePct > 0).sort((a, b) => b.changePct - a.changePct);
+  const down = list.filter((t) => t.changePct <= 0).sort((a, b) => a.changePct - b.changePct);
+  const val = (t) =>
+    `${themeStreak(t)}<span class="cnt">상승 ${t.up} · 하락 ${t.down}</span><span class="vl ${dir(t.changePct)}">${pct(t.changePct)}</span>`;
+  const attrs = (t) => `data-krtheme="${esc(t.no)}"`;
+  const col = (title, items) =>
+    items.length ? rankList(`${title} ${items.length}개`, items, val, attrs) : `<div><p class="col-title">${title}</p><p class="sub">${q ? "검색 결과가 없어요." : "없어요."}</p></div>`;
+  $("#krthemes").innerHTML = col("오른 테마", up) + col("내린 테마", down);
+}
+
+async function loadKrThemes() {
+  if (Date.now() - krThemesLoaded < 600_000) return;
+  $("#krthemes").innerHTML = `<div class="skeleton" style="height:300px"></div><div class="skeleton" style="height:300px"></div>`;
+  try {
+    krThemes = await getJson("/api/kr-themes");
+    krThemesLoaded = Date.now();
+    const d = krThemes.basisDate;
+    const date = new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T12:00:00`);
+    $("#krthemes-title").textContent = `${date.getMonth() + 1}/${date.getDate()}(${"일월화수목금토"[date.getDay()]}) 한국 테마 흐름`;
+    $("#krthemes-sub").textContent = `전일 종가 기준 · 네이버 테마 ${krThemes.count}개 · 테마를 누르면 관련 종목`;
+    // 새로 생긴 테마가 있으면 위쪽에 따로 알림 (누르면 관련 종목)
+    const nt = krThemes.newThemes || [];
+    $("#krthemes-new").hidden = !nt.length;
+    $("#krthemes-new").innerHTML = nt.length
+      ? `<b>새로 생긴 테마 ${nt.length}개</b> ${nt
+          .map((t) => `<button class="chip new-chip" data-krtheme="${esc(t.no)}">${esc(t.name)} <small>${fmtYmd(t.firstSeen)}</small></button>`)
+          .join("")}`
+      : "";
+    renderKrThemes();
+  } catch (e) {
+    $("#krthemes").innerHTML = `<div class="state">불러오지 못했어요.<br><small>${esc(e.message)}</small><br><button data-krthemes-retry>다시 시도</button></div>`;
+  }
+}
+
+// 테마를 누르면 관련 종목 창 (등락률 높은 순)
+async function openKrTheme(no) {
+  const dlg = $("#detail");
+  const body = $("#detail-body");
+  body.innerHTML = `<div class="detail-head"><div class="skeleton" style="width:220px;height:40px"></div><button class="close-btn" data-close aria-label="닫기">×</button></div>
+    <div class="skeleton" style="height:300px;margin-top:16px"></div>`;
+  if (!dlg.open) dlg.showModal();
+  let t;
+  try {
+    ({ theme: t } = await getJson(`/api/kr-themes?no=${encodeURIComponent(no)}`));
+  } catch (e) {
+    body.innerHTML = `<div class="detail-head"><h3 id="detail-title">테마</h3><button class="close-btn" data-close aria-label="닫기">×</button></div><div class="state">불러오지 못했어요.<br><small>${esc(e.message)}</small></div>`;
+    return;
+  }
+  if (!dlg.open) return;
+  const d = krThemes?.basisDate ?? "";
+  body.innerHTML = `
+    <div class="detail-head">
+      <div>
+        <h3 id="detail-title">${esc(t.name)} <span class="num ${dir(t.changePct)}" style="font-size:18px">${pct(t.changePct)}</span>${themeStreak(t)}</h3>
+        <div class="card-meta">${d ? `${d.slice(4, 6)}/${d.slice(6, 8)} 장 마감 기준 · ` : ""}관련 ${t.count}종목 중 상승 ${t.up} · 하락 ${t.down}</div>
+      </div>
+      <button class="close-btn" data-close aria-label="닫기">×</button>
+    </div>
+    <div class="section-title"><span>관련 종목 (많이 오른 순)</span><span class="sub">시가총액 · 종합 점수 · 등락률 · 종목을 누르면 상세 분석</span></div>
+    ${
+      t.members?.length
+        ? rankList(
+            "",
+            t.members,
+            (s) => `<span class="vl" style="color:var(--muted)">${capLabel(s.marketValue)}</span>${scoreBadge(s)}<span class="vl ${dir(s.changePct)}">${pct(s.changePct)}</span>`
+          )
+        : `<p class="sub">관련 종목 데이터가 없어요.</p>`
+    }`;
+}
+
+$("#krthemes-search").addEventListener("input", renderKrThemes);
+
+// ---------- 공모주 청약 탭 ----------
+
+let ipoLoaded = 0;
+
+// 한국 시간 오늘 YYYYMMDD
+const todayKst = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10).replace(/-/g, "");
+const ymdLabel = (d) => {
+  if (!d) return "-";
+  const t = new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T12:00:00`);
+  return `${t.getMonth() + 1}/${t.getDate()}(${"일월화수목금토"[t.getDay()]})`;
+};
+const daysBetween = (a, b) =>
+  Math.round((Date.parse(`${b.slice(0, 4)}-${b.slice(4, 6)}-${b.slice(6, 8)}`) - Date.parse(`${a.slice(0, 4)}-${a.slice(4, 6)}-${a.slice(6, 8)}`)) / 86400000);
+
+// 청약 점수 근거 한 줄 (항목별 점수, 마우스를 올리면 근거)
+function ipoScoreLine(sc) {
+  if (!sc) return "";
+  if (sc.spac) return `<p class="ipo-score sub">스팩(기업인수목적회사)은 성격이 달라 점수를 내지 않아요.</p>`;
+  const parts = sc.items
+    .map((i) => `<span title="${esc(i.detail)}">${esc(i.label)} <b>${i.score == null ? "-" : i.score}</b>/${i.max}</span>`)
+    .join("");
+  const head = sc.total == null ? `<span class="ipo-wait">수요예측 후 점수 확정</span>` : "";
+  return `<p class="ipo-score">${head}${parts}</p>`;
+}
+
+function ipoCard(x, today) {
+  // 청약 중 / 청약 예정(D-n) / 청약 마감(상장 대기)
+  let st;
+  if (today >= x.subStart && today <= (x.subEnd || x.subStart)) st = { cls: "live", text: "청약 중" };
+  else if (today < x.subStart) {
+    const n = daysBetween(today, x.subStart);
+    st = { cls: "soon", text: n === 1 ? "내일 청약" : `청약 D-${n}` };
+  } else st = { cls: "done", text: x.listingDate && today < x.listingDate ? "상장 대기" : "청약 마감" };
+  const won = (v) => (v == null ? null : `${v.toLocaleString("ko-KR")}원`);
+  const price = x.price ? `${won(x.price)} <small class="sub">확정</small>` : x.priceLow ? `${won(x.priceLow)}~${won(x.priceHigh)} <small class="sub">희망</small>` : "-";
+  const rows = [
+    ["청약일", `${ymdLabel(x.subStart)}${x.subEnd && x.subEnd !== x.subStart ? ` ~ ${ymdLabel(x.subEnd)}` : ""}`],
+    ["공모가", price],
+    ["기관 경쟁률", x.institutionRate ? `${x.institutionRate.toLocaleString("ko-KR")} : 1` : "-"],
+    ...(x.subscriptionRate ? [["청약 경쟁률", `${x.subscriptionRate.toLocaleString("ko-KR")} : 1`]] : []),
+    ["상장 예정", x.listingDate ? ymdLabel(x.listingDate) : "미정"],
+    ["주관사", esc(x.leadManager || "-") + (x.coManager ? ` 외` : "")],
+  ];
+  const links = [
+    x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">네이버 공모주 정보</a>` : "",
+    ...x.docs.slice(0, 2).map((d) => `<a href="${esc(d.url)}" target="_blank" rel="noopener noreferrer">${esc((d.title || "자료").replace(/^\[IPO\]\s*/, ""))}</a>`),
+  ].filter(Boolean);
+  return `<div class="ipo ${st.cls === "live" ? "live" : ""}">
+    <div class="ipo-top">
+      <div><div class="ipo-name">${esc(x.name)}</div><div class="card-meta">${esc([x.market, x.category, x.stage].filter(Boolean).join(" · "))}</div></div>
+      <div class="ipo-right"><span class="ipo-st ${st.cls}">${st.text}</span>${x.score?.total != null ? ring(x.score.total, x.score.grade) : ""}</div>
+    </div>
+    <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+    ${ipoScoreLine(x.score)}
+    ${links.length ? `<div class="ipo-links">${links.join("")}</div>` : ""}
+  </div>`;
+}
+
+async function loadIpo() {
+  if (Date.now() - ipoLoaded < 600_000) return;
+  $("#ipo-scheduled").innerHTML = Array.from({ length: 4 }, () => `<div class="skeleton" style="height:220px"></div>`).join("");
+  try {
+    const b = await getJson("/api/ipo");
+    ipoLoaded = Date.now();
+    const today = todayKst();
+    // 청약이 끝나고 상장도 지난 기업은 빼고, 진행 중인 것부터
+    const list = b.scheduled.filter((x) => !(x.listingDate && today > x.listingDate));
+    const order = (x) => (today >= x.subStart && today <= (x.subEnd || x.subStart) ? 0 : today < x.subStart ? 1 : 2);
+    list.sort((a, c) => order(a) - order(c) || (order(a) === 2 ? c.subStart.localeCompare(a.subStart) : a.subStart.localeCompare(c.subStart)));
+    const live = list.filter((x) => order(x) === 0).length;
+    $("#ipo-sub").textContent = `청약 중 ${live}개 · 예정 ${list.filter((x) => order(x) === 1).length}개 · 네이버 공모주 정보 · ${timeLabel(new Date(b.updatedAt))} 기준`;
+    $("#ipo-scheduled").innerHTML = list.length ? list.map((x) => ipoCard(x, today)).join("") : `<p class="sub">예정된 청약이 없어요.</p>`;
+
+    const pend = b.pending;
+    const half = Math.ceil(pend.length / 2);
+    const val = (x) => `<span class="cnt">${esc(x.market || "")}</span><span class="vl" style="color:var(--muted)">${esc(x.stage || "")}</span>`;
+    const attrs = (x) => (x.url ? `data-ipo-url="${esc(x.url)}"` : "");
+    $("#ipo-pending").innerHTML = pend.length
+      ? rankList(`${pend.length}개 기업`, pend.slice(0, half), val, attrs) + rankList("&nbsp;", pend.slice(half), val, attrs).replace(/<span class="rn">(\d+)<\/span>/g, (m, n) => `<span class="rn">${Number(n) + half}</span>`)
+      : `<p class="sub">없어요.</p>`;
+  } catch (e) {
+    $("#ipo-scheduled").innerHTML = `<div class="state">불러오지 못했어요.<br><small>${esc(e.message)}</small><br><button data-ipo-retry>다시 시도</button></div>`;
+  }
+}
+
+const VIEWS = ["themes", "top30", "briefing", "krbriefing", "krthemes", "limits", "ipo"];
 
 function showView(view) {
   if (!VIEWS.includes(view)) view = "themes";
@@ -409,7 +655,17 @@ function showView(view) {
     $(`#view-${v}`).hidden = v !== view;
     $(`#tab-${v}`).setAttribute("aria-selected", v === view);
   }
+  // 휴대폰에서 탭 줄이 넘칠 때 선택한 탭이 보이게 탭 줄만 옆으로 밀기
+  setTimeout(() => {
+    const tab = $(`#tab-${view}`);
+    const bar = tab.parentElement;
+    const offset = tab.getBoundingClientRect().left - bar.getBoundingClientRect().left;
+    bar.scrollLeft += offset - (bar.clientWidth - tab.offsetWidth) / 2;
+  });
   if (view === "top30") loadTop30();
+  if (view === "limits") loadLimits();
+  if (view === "krthemes") loadKrThemes();
+  if (view === "ipo") loadIpo();
   if (view === "briefing") loadBriefing();
   if (view === "krbriefing") loadKrBriefing();
   const hash = view === "themes" ? "" : `#${view}`;
@@ -857,6 +1113,21 @@ document.addEventListener("click", (e) => {
   const card = e.target.closest(".card[data-code], .rank-list [data-code]");
   if (card) return openDetail(card.dataset.code);
 
+  const ind = e.target.closest("[data-industry]");
+  if (ind) return openIndustry(ind.dataset.industry);
+  const ipoLink = e.target.closest("[data-ipo-url]");
+  if (ipoLink) return window.open(ipoLink.dataset.ipoUrl, "_blank", "noopener");
+  if (e.target.closest("[data-ipo-retry]")) {
+    ipoLoaded = 0;
+    return loadIpo();
+  }
+  const th = e.target.closest("[data-krtheme]");
+  if (th) return openKrTheme(th.dataset.krtheme);
+  if (e.target.closest("[data-krthemes-retry]")) {
+    krThemesLoaded = 0;
+    return loadKrThemes();
+  }
+
   const mkt = e.target.closest(".mkt[data-market]");
   if (mkt) return openMarket(mkt.dataset.market);
   const range = e.target.closest("[data-market-range]");
@@ -872,6 +1143,10 @@ document.addEventListener("click", (e) => {
     return;
   }
 
+  if (e.target.closest("[data-limits-retry]")) {
+    limitsLoaded = 0;
+    return loadLimits();
+  }
   if (e.target.closest("[data-kr-retry]")) {
     krLoaded = 0;
     return loadKrBriefing();

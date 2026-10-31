@@ -11,7 +11,18 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { listMarket, getDailyCandles, getInvestorFlows, getFundamentals, getIndexInvestors, getIndustries, getIndexDaily } from "../api/_lib/naver.js";
+import {
+  listMarket,
+  getDailyCandles,
+  getInvestorFlows,
+  getFundamentals,
+  getIndexInvestors,
+  getIndustries,
+  getIndustryStocks,
+  getThemes,
+  getThemeStocks,
+  getIndexDaily,
+} from "../api/_lib/naver.js";
 import { scoreStock } from "../api/_lib/score.js";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -21,6 +32,13 @@ const args = Object.fromEntries(
 const OUT = join(ROOT, args.out || "data/top30.json");
 const HISTORY = join(ROOT, args.history || join(dirname(args.out || "data/top30.json"), "history.json"));
 const HISTORY_DAYS = 60; // 기록을 남길 거래일 수
+// 테마 날짜별 등락률 기록 { 날짜: { 테마번호: 등락률 } } (연속 상승·하락 일수 계산용)
+const THEME_HISTORY = join(ROOT, args["theme-history"] || join(dirname(args.out || "data/top30.json"), "theme-history.json"));
+const THEME_BACKFILL_DAYS = 30; // 기록이 없는 과거 거래일은 관련 종목 일봉으로 채움
+// 테마를 처음 본 날 { 테마번호: 날짜 } (새로 생긴 테마 찾기용). 첫 기록 때 있던 테마는 "기존"으로 등록
+const THEME_CATALOG = join(ROOT, args["theme-catalog"] || join(dirname(args.out || "data/top30.json"), "theme-catalog.json"));
+const KNOWN_BEFORE = "00000000";
+const NEW_THEME_DAYS = 5; // 새 테마는 처음 본 날부터 이 거래일 동안 NEW 표시
 const TOP = Number(args.top ?? 30);
 const MIN_VALUE = Number(args["min-value"] ?? 10) * 1e8; // 원
 const CONCURRENCY = 8;
@@ -172,15 +190,24 @@ async function main() {
   };
 
   // 5) 한국 시장 브리핑 (같은 기준일)
-  const briefing = await buildKrBriefing({ stocks: withCandles.filter((s) => !s.error), basisDate, liveToday });
+  const okStocks = withCandles.filter((s) => !s.error);
+  const briefing = await buildKrBriefing({ stocks: okStocks, basisDate, liveToday });
+  // 6) 한국 테마 (같은 기준일)
+  const krThemes = await buildKrThemes({ stocks: okStocks, basisDate, liveToday });
 
-  // 많이 움직인 종목에 종합 점수 붙이기. 위에서 계산한 종목은 그대로 쓰고,
-  // 거래대금 조건 밖이라 계산하지 않은 종목(신규 상장, 그날만 거래가 몰린 종목 등)은 여기서 계산
+  // 브리핑·테마 목록 종목에 종합 점수 붙이기. 위에서 계산한 종목은 그대로 쓰고,
+  // 거래대금 조건 밖이라 계산하지 않은 종목(신규 상장, 거래가 적은 종목 등)은 여기서 계산
   const scoreByCode = new Map(scored.filter((s) => !s.error).map((s) => [s.code, s.score]));
-  const moverCodes = [...new Set(Object.values(briefing.movers).flat().map((m) => m.code))];
-  const missing = moverCodes.filter((c) => !scoreByCode.has(c)).map((c) => withCandles.find((s) => s.code === c)).filter(Boolean);
-  for (const r of await pool(missing, CONCURRENCY, scoreOne, "움직인 종목 점수")) if (!r.error) scoreByCode.set(r.code, r.score);
-  for (const list of Object.values(briefing.movers)) {
+  const lists = [
+    ...Object.values(briefing.movers),
+    ...Object.values(briefing.limits),
+    ...(briefing.industries ? [...briefing.industries.top, ...briefing.industries.bottom].map((g) => g.members || []) : []),
+    ...(krThemes ? krThemes.themes.map((t) => t.members || []) : []),
+  ];
+  const listedCodes = [...new Set(lists.flat().map((m) => m.code))];
+  const missing = listedCodes.filter((c) => !scoreByCode.has(c)).map((c) => withCandles.find((s) => s.code === c)).filter(Boolean);
+  for (const r of await pool(missing, CONCURRENCY, scoreOne, "추가 점수")) if (!r.error) scoreByCode.set(r.code, r.score);
+  for (const list of lists) {
     for (const m of list) {
       const sc = scoreByCode.get(m.code);
       m.score = sc ? { total: sc.total, grade: sc.grade } : null;
@@ -192,6 +219,10 @@ async function main() {
   await writeFile(HISTORY, JSON.stringify(history));
   await writeFile(join(dirname(OUT), "kr-briefing.json"), JSON.stringify(briefing));
   console.log(`한국 시장 브리핑: ${briefing.summary.length}줄 · 업종 ${briefing.industries ? "포함" : "제외(장중 실행)"}`);
+  if (krThemes) {
+    await writeFile(join(dirname(OUT), "kr-themes.json"), JSON.stringify(krThemes));
+    console.log(`한국 테마: ${krThemes.count}개 · 관련 종목 ${krThemes.themes.reduce((n, t) => n + t.members.length, 0)}건`);
+  } else console.log("한국 테마: 장중 실행이라 이번에는 만들지 않음");
   console.log(`\n완료 ${((Date.now() - started) / 1000).toFixed(0)}초 · 점수 계산 ${ranked.length}개 · 실패 ${result.counts.failed}개`);
   console.log(`상위 ${TOP}: ${result.items.slice(0, 10).map((s) => `${s.name} ${s.score.total}`).join(", ")} ...`);
   console.log(`연속 진입: ${result.items.filter((s) => s.streak > 1).length}개 종목이 2일 이상 (기록 ${result.historyDays}일치)`);
@@ -202,6 +233,115 @@ async function main() {
 
 const sign = (v, d = 2) => `${v > 0 ? "+" : ""}${v.toFixed(d)}%`;
 const eok = (v) => `${v > 0 ? "+" : ""}${Math.round(v).toLocaleString("ko-KR")}억`;
+const strip = ({ atHigh, atLow, ...d }) => d; // 저장할 때 내부 계산용 값 빼기
+
+// 기준일 하루치 종목 행: 종가, 등락률, 거래대금. 전일 종가가 없는 신규 상장 첫날 종목은 빠짐
+function dayRows(stocks, basisDate) {
+  return stocks
+    .map((s) => {
+      const last = s.candles.at(-1);
+      const prev = s.candles.at(-2);
+      if (!last || !prev || last.date !== basisDate) return null;
+      return {
+        code: s.code,
+        name: s.name,
+        market: s.market,
+        price: last.close,
+        changePct: ((last.close - prev.close) / prev.close) * 100,
+        value: Math.round((last.close * last.volume) / 1e8), // 억 원
+        atHigh: last.close === last.high,
+        atLow: last.close === last.low,
+      };
+    })
+    .filter(Boolean);
+}
+
+// 한국 테마: 네이버 테마 전체와 관련 종목(기준일 등락률 높은 순). 장중 실행이면 기준일과 달라서 만들지 않음
+async function buildKrThemes({ stocks, basisDate, liveToday }) {
+  if (liveToday) return null;
+  const themes = await getThemes().catch(() => []);
+  if (!themes.length) return null;
+  const dayByCode = new Map(dayRows(stocks, basisDate).map((d) => [d.code, strip(d)]));
+  await pool(
+    themes,
+    CONCURRENCY,
+    async (t) => {
+      const members = await getThemeStocks(t.no).catch(() => []);
+      t.members = members
+        .filter((m) => m.type === "stock" && /0$/.test(m.code) && dayByCode.has(m.code))
+        .map((m) => ({ ...dayByCode.get(m.code), marketValue: m.marketValue }))
+        .sort((a, b) => b.changePct - a.changePct);
+    },
+    "테마 종목"
+  );
+
+  // 연속 상승·하락 일수: 날짜별 테마 등락률 기록으로 계산
+  const history = await readFile(THEME_HISTORY, "utf8").then(JSON.parse).catch(() => ({}));
+  history[basisDate] = Object.fromEntries(themes.map((t) => [t.no, t.changePct]));
+  const calendar = [...new Set(stocks.flatMap((s) => s.candles.map((c) => c.date)))]
+    .filter((d) => d <= basisDate)
+    .sort()
+    .reverse();
+
+  // 새로 생긴 테마: 처음 본 날을 기록. 첫 기록 때 이미 있던 테마는 "기존"으로 등록
+  const catalog = await readFile(THEME_CATALOG, "utf8").then(JSON.parse).catch(() => null);
+  const firstSeen = catalog ?? {};
+  for (const t of themes) if (!firstSeen[t.no]) firstSeen[t.no] = catalog ? basisDate : KNOWN_BEFORE;
+  const recent = calendar.slice(0, NEW_THEME_DAYS); // 최근 거래일 (오늘 포함)
+  for (const t of themes) {
+    const seen = firstSeen[t.no];
+    t.isNew = seen !== KNOWN_BEFORE && recent.includes(seen);
+    if (t.isNew) t.firstSeen = seen;
+  }
+  await writeFile(THEME_CATALOG, JSON.stringify(firstSeen));
+
+  // 기록이 없는 과거 거래일은 관련 종목 일봉의 등락률 평균으로 채움 (처음 실행이나 빠진 날)
+  // 새로 생긴 테마는 생기기 전 날짜를 채우지 않음
+  const candlesByCode = new Map(stocks.map((s) => [s.code, new Map(s.candles.map((c, i) => [c.date, { close: c.close, prev: s.candles[i - 1]?.close }]))]));
+  let backfilled = 0;
+  for (const d of calendar.slice(1, THEME_BACKFILL_DAYS + 1)) {
+    if (history[d]) continue;
+    history[d] = {};
+    for (const t of themes) {
+      if (firstSeen[t.no] !== KNOWN_BEFORE && firstSeen[t.no] > d) continue;
+      const changes = t.members
+        .map((m) => candlesByCode.get(m.code)?.get(d))
+        .filter((c) => c?.prev)
+        .map((c) => ((c.close - c.prev) / c.prev) * 100);
+      if (changes.length) history[d][t.no] = Math.round((changes.reduce((s, v) => s + v, 0) / changes.length) * 100) / 100;
+    }
+    backfilled++;
+  }
+
+  // 오늘 오른 테마는 연속 상승, 내린 테마는 연속 하락 일수 (기록이 없는 날에서 끊음)
+  for (const t of themes) {
+    const up = t.changePct > 0;
+    let days = 0;
+    if (t.changePct !== 0) {
+      for (const d of calendar) {
+        const v = history[d]?.[t.no];
+        if (v == null || (up ? !(v > 0) : !(v < 0))) break;
+        days++;
+      }
+    }
+    t.streak = days ? { dir: up ? "up" : "down", days } : null;
+    // 전환: 전날 기록이 있는데 오늘 방향이 바뀜 (새 테마처럼 전날 기록이 없으면 전환 아님)
+    t.turned = !t.isNew && days === 1 && history[calendar[1]]?.[t.no] != null;
+  }
+  for (const d of Object.keys(history)) if (!calendar.slice(0, HISTORY_DAYS).includes(d)) delete history[d];
+  await mkdir(dirname(THEME_HISTORY), { recursive: true });
+  await writeFile(THEME_HISTORY, JSON.stringify(history));
+
+  return {
+    basisDate,
+    generatedAt: new Date().toISOString(),
+    count: themes.length,
+    historyDays: Object.keys(history).length,
+    backfilled,
+    newThemes: themes.filter((t) => t.isNew).map((t) => ({ no: t.no, name: t.name, firstSeen: t.firstSeen })),
+    themes,
+  };
+}
 
 async function buildKrBriefing({ stocks, basisDate, liveToday }) {
   const iso = `${basisDate.slice(0, 4)}-${basisDate.slice(4, 6)}-${basisDate.slice(6, 8)}`;
@@ -233,39 +373,44 @@ async function buildKrBriefing({ stocks, basisDate, liveToday }) {
   }
 
   // 등락 종목 수와 상위 종목: 기준일 일봉 기준 (보통주 전체)
-  const day = stocks
-    .map((s) => {
-      const last = s.candles.at(-1);
-      const prev = s.candles.at(-2);
-      if (!last || !prev || last.date !== basisDate) return null;
-      return {
-        code: s.code,
-        name: s.name,
-        market: s.market,
-        price: last.close,
-        changePct: ((last.close - prev.close) / prev.close) * 100,
-        value: Math.round((last.close * last.volume) / 1e8), // 억 원
-      };
-    })
-    .filter(Boolean);
+  const day = dayRows(stocks, basisDate);
+  // 상한가·하한가 마감: 가격제한폭 ±30%에 호가 단위 내림이 있어
+  // ±29% 이상이면서 종가가 그날 고가(저가)와 같은 종목. 거래대금 큰 순
+  const limits = {
+    upper: day.filter((d) => d.changePct >= 29 && d.atHigh).sort((a, b) => b.value - a.value).map(strip),
+    lower: day.filter((d) => d.changePct <= -29 && d.atLow).sort((a, b) => b.value - a.value).map(strip),
+  };
   const breadth = {
     total: day.length,
     up: day.filter((d) => d.changePct > 0).length,
     down: day.filter((d) => d.changePct < 0).length,
     flat: day.filter((d) => d.changePct === 0).length,
-    upperLimit: day.filter((d) => d.changePct >= 29.5).length,
-    lowerLimit: day.filter((d) => d.changePct <= -29.5).length,
+    upperLimit: limits.upper.length,
+    lowerLimit: limits.lower.length,
   };
   const liquidDay = day.filter((d) => d.value >= 10); // 그날 거래대금 10억 이상
   const movers = {
-    gainers: [...liquidDay].sort((a, b) => b.changePct - a.changePct).slice(0, 10),
-    losers: [...liquidDay].sort((a, b) => a.changePct - b.changePct).slice(0, 10),
-    value: [...day].sort((a, b) => b.value - a.value).slice(0, 10),
+    gainers: [...liquidDay].sort((a, b) => b.changePct - a.changePct).slice(0, 10).map(strip),
+    losers: [...liquidDay].sort((a, b) => a.changePct - b.changePct).slice(0, 10).map(strip),
+    value: [...day].sort((a, b) => b.value - a.value).slice(0, 10).map(strip),
   };
 
   // 업종: 네이버가 마지막 시세만 주므로, 장중에 실행했으면 기준일과 달라서 뺌
   const all = liveToday ? [] : await getIndustries().catch(() => []);
   const industries = all.length ? { count: all.length, top: all.slice(0, 7), bottom: all.slice(-7).reverse() } : null;
+
+  // 화면에 나오는 업종마다 대표 종목: 보통주를 시가총액 순으로 최대 15개, 등락률·거래대금은 기준일 일봉 기준
+  if (industries) {
+    const dayByCode = new Map(day.map((d) => [d.code, d]));
+    for (const g of [...industries.top, ...industries.bottom]) {
+      const members = await getIndustryStocks(g.no).catch(() => []);
+      g.members = members
+        .filter((m) => m.type === "stock" && /0$/.test(m.code) && dayByCode.has(m.code))
+        .sort((a, b) => (b.marketValue ?? 0) - (a.marketValue ?? 0))
+        .slice(0, 15)
+        .map((m) => ({ ...strip(dayByCode.get(m.code)), marketValue: m.marketValue }));
+    }
+  }
 
   // 요약 문장
   const summary = [];
@@ -303,7 +448,7 @@ async function buildKrBriefing({ stocks, basisDate, liveToday }) {
   if (movers.value.length) {
     summary.push(`거래대금 상위: ${movers.value.slice(0, 3).map((s) => `${s.name}(${sign(s.changePct)})`).join(", ")}`);
   }
-  return { basisDate, generatedAt: new Date().toISOString(), indices, investors, breadth, industries, movers, summary };
+  return { basisDate, generatedAt: new Date().toISOString(), indices, investors, breadth, industries, movers, limits, summary };
 }
 
 main().catch((e) => {

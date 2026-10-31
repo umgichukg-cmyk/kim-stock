@@ -116,6 +116,21 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 
 .streak { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); font-size: 11px; font-weight: 700; vertical-align: 2px; white-space: nowrap; }
 .streak.hot { border-color: var(--up); background: var(--up); color: #fff; }
+/* 테마: 연속 상승은 빨강, 연속 하락은 파랑 */
+.streak.up { border-color: var(--up); color: var(--up); }
+.streak.down { border-color: var(--down); color: var(--down); }
+.streak.down.hot { border-color: var(--down); background: var(--down); color: #fff; }
+.streak.up.hot { color: #fff; }
+.rank-list .streak { flex: none; margin-left: 0; }
+/* 테마 NEW·전환 배지 */
+.tbadge { display: inline-block; flex: none; margin-left: 6px; padding: 1px 6px; border-radius: 6px; font-size: 10.5px; font-weight: 800; vertical-align: 2px; white-space: nowrap; }
+.rank-list .tbadge { margin-left: 0; }
+.tbadge.new { background: #19a55a; color: #fff; letter-spacing: 0.3px; }
+.tbadge.turn { border: 1px dashed var(--muted); color: var(--text); }
+.new-themes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; padding: 10px 12px; border: 1px solid #19a55a; border-radius: 10px; background: color-mix(in srgb, #19a55a 12%, transparent); font-size: 13px; }
+.new-themes b { color: #19a55a; margin-right: 4px; }
+.new-chip { height: 28px; border-color: #19a55a; color: var(--text); }
+.new-chip small { color: var(--muted); font-weight: 500; }
 
 /* 미국 시장 브리핑 */
 .briefing-summary { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
@@ -128,8 +143,35 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .quote-price { margin-top: 2px; font: 700 18px "Space Grotesk", "Noto Sans KR", sans-serif; }
 .quote-chg { font: 600 13px "Space Grotesk", "Noto Sans KR", sans-serif; }
 
+/* 공모주 청약 */
+.ipo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.ipo { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); }
+.ipo.live { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.ipo-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.ipo-name { font-size: 16px; font-weight: 800; }
+.ipo-st { flex: none; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 800; white-space: nowrap; }
+.ipo-st.live { background: var(--accent); color: #fff; }
+.ipo-st.soon { background: var(--accent-soft); color: var(--accent); }
+.ipo-st.done { background: var(--surface-2); color: var(--muted); }
+.ipo-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.ipo-score { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--surface-2); font-size: 12px; color: var(--muted); }
+.ipo-score b { color: var(--text); font-family: "Space Grotesk", sans-serif; }
+.ipo-wait { width: 100%; color: var(--accent); font-weight: 700; }
+.ipo dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0; font-size: 13px; }
+.ipo dt { color: var(--muted); }
+.ipo dd { margin: 0; font-weight: 600; text-align: right; }
+.ipo-links { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12.5px; }
+.ipo-links a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.ipo-links a:hover { text-decoration: underline; }
+
+/* 한국 테마 흐름 */
+.theme-search { width: 260px; max-width: 100%; height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.theme-search:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.rank-list .cnt { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+
 /* 한국 시장 브리핑 */
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.two-col > *, .three-col > * { min-width: 0; } /* 긴 이름이 칸을 넓히지 않게 */
 .three-col { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .col-title { margin: 0 0 6px; font-size: 13px; font-weight: 700; color: var(--muted); }
 .breadth-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--border); }
@@ -279,6 +321,7 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   .totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .quote-grid, #briefing-indices, #kr-indices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .two-col, .three-col { grid-template-columns: 1fr; }
+  .rank-list .cnt { display: none; }
   .tab { padding: 0 12px; font-size: 13px; }
   .chart-box, .market-chart { height: 300px; }
   .detail { max-height: calc(100vh - 16px); }

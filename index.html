@@ -44,7 +44,55 @@
       <button class="tab" role="tab" id="tab-top30" data-view="top30" aria-selected="false">한국주식 상위 30</button>
       <button class="tab" role="tab" id="tab-briefing" data-view="briefing" aria-selected="false">미국 시장 브리핑</button>
       <button class="tab" role="tab" id="tab-krbriefing" data-view="krbriefing" aria-selected="false">한국 시장 브리핑</button>
+      <button class="tab" role="tab" id="tab-krthemes" data-view="krthemes" aria-selected="false">한국 테마 흐름</button>
+      <button class="tab" role="tab" id="tab-limits" data-view="limits" aria-selected="false">상한가·하한가</button>
+      <button class="tab" role="tab" id="tab-ipo" data-view="ipo" aria-selected="false">공모주 청약</button>
     </nav>
+
+    <section class="panel" id="view-limits" hidden>
+      <div class="panel-head">
+        <div>
+          <h2 id="limits-title">상한가·하한가</h2>
+          <p class="sub" id="limits-sub">전일 한국 시장 종가 기준 · 상한가(하한가)로 마감한 보통주 · 거래대금 큰 순 · 색 상자는 종합 점수 · 종목을 누르면 상세 분석</p>
+        </div>
+      </div>
+      <div class="two-col" id="limits"></div>
+      <p class="notice">상한가·하한가는 전일 대비 ±29% 이상이면서 종가가 그날 고가(저가)와 같은 종목이에요. 장중에 닿았다가 내려온 종목과, 전일 종가가 없는 신규 상장 첫날 종목은 빠져요. 평일 저녁 7시쯤 갱신돼요.</p>
+    </section>
+
+    <section class="panel" id="view-krthemes" hidden>
+      <div class="panel-head">
+        <div>
+          <h2 id="krthemes-title">한국 테마 흐름</h2>
+          <p class="sub" id="krthemes-sub">전일 한국 시장 종가 기준 · 네이버 테마 분류 · 테마를 누르면 관련 종목</p>
+        </div>
+        <input class="theme-search" id="krthemes-search" type="search" placeholder="테마 이름 검색 (예: 반도체, 원전)" aria-label="테마 이름 검색">
+      </div>
+      <div class="new-themes" id="krthemes-new" hidden></div>
+      <p class="notice" style="margin:0 0 12px">테마 등락률은 네이버가 계산한 테마 평균이에요. 그날 상장한 종목처럼 전일 종가가 없는 종목은 관련 종목 목록에서 빠져서, 목록 흐름과 테마 등락률이 다를 수 있어요. 평일 저녁 7시쯤 갱신돼요.</p>
+      <div class="two-col" id="krthemes"></div>
+      <p class="notice">"연속 N일"은 오른 테마는 연속 상승, 내린 테마는 연속 하락한 거래일 수예요(3일 이상은 색을 채워 표시). "전환"은 전날과 반대로 움직인 테마, "NEW"는 네이버에 새로 생긴 테마예요(처음 본 날부터 5거래일 동안 표시). 처음 기록을 시작하기 전 30거래일은 관련 종목 일봉 평균으로 채웠어요. 테마 등락률은 네이버가 계산한 테마 평균이에요. 그날 상장한 종목처럼 전일 종가가 없는 종목은 관련 종목 목록에서 빠져서, 목록 흐름과 테마 등락률이 다를 수 있어요. 평일 저녁 7시쯤 갱신돼요.</p>
+    </section>
+
+    <section id="view-ipo" hidden>
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>공모주 청약 일정</h2>
+            <p class="sub" id="ipo-sub">청약일 순 · 네이버 공모주 정보 · 30분마다 갱신</p>
+          </div>
+        </div>
+        <p class="notice" style="margin:0 0 8px"><b>청약 점수(참고용)</b> · 기관 경쟁률 40(1,000:1↑ 40, 500↑ 32, 200↑ 22, 100↑ 14) · 공모가 위치 25(희망 상단 초과 25, 상단 20, 범위 안 10, 하단 0) · 실적 20(최근 영업이익 흑자 8, 직전 연도 흑자 4, 매출 증가 4, 영업손익 개선 4) · 공모 규모 15(300억↓ 15, 500억↓ 12, 1,000억↓ 8, 3,000억↓ 5). 75점↑ 유리 · 60점↑ 양호 · 45점↑ 보통 · 그 아래 주의. 경쟁률과 공모가는 수요예측이 끝나야 나와서 그 전에는 종합 점수를 내지 않아요. 과거 데이터로 검증하지 않은 규칙이고, 상장 첫날 수익에 중요한 의무보유확약·유통 물량은 데이터가 없어 빠져 있어요. 점수가 높아도 손실이 날 수 있어요.</p>
+        <p class="notice" style="margin:0 0 12px">공모가는 확정됐으면 확정가, 아니면 희망 공모가 범위예요. 기관 경쟁률은 수요예측 결과예요. 청약 일정과 조건은 바뀔 수 있으니 실제 청약 전에 주관 증권사 공고를 꼭 확인하세요.</p>
+        <div class="ipo-grid" id="ipo-scheduled"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>상장 준비 중</h2><p class="sub">아직 청약 일정이 정해지지 않은 기업 · 누르면 네이버 공모주 정보가 새 창으로 열려요</p></div></div>
+        <div class="two-col" id="ipo-pending"></div>
+      </div>
+      <p class="notice"><b>청약 점수(참고용)</b> · 기관 경쟁률 40(1,000:1↑ 40, 500↑ 32, 200↑ 22, 100↑ 14) · 공모가 위치 25(희망 상단 초과 25, 상단 20, 범위 안 10, 하단 0) · 실적 20(최근 영업이익 흑자 8, 직전 연도 흑자 4, 매출 증가 4, 영업손익 개선 4) · 공모 규모 15(300억↓ 15, 500억↓ 12, 1,000억↓ 8, 3,000억↓ 5). 75점↑ 유리 · 60점↑ 양호 · 45점↑ 보통 · 그 아래 주의. 경쟁률과 공모가는 수요예측이 끝나야 나와서 그 전에는 종합 점수를 내지 않아요. 과거 데이터로 검증하지 않은 규칙이고, 상장 첫날 수익에 중요한 의무보유확약·유통 물량은 데이터가 없어 빠져 있어요. 점수가 높아도 손실이 날 수 있어요.</p>
+      <p class="notice">공모가는 확정됐으면 확정가, 아니면 희망 공모가 범위예요. 기관 경쟁률은 수요예측 결과예요. 청약 일정과 조건은 바뀔 수 있으니 실제 청약 전에 주관 증권사 공고를 꼭 확인하세요.</p>
+    </section>
 
     <section id="view-krbriefing" hidden>
       <div class="panel">

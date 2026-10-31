@@ -110,17 +110,93 @@ export async function getIndexInvestors(index, bizdate) {
   };
 }
 
-// 업종별 등락 (마지막 시세 기준, 등락률 높은 순)
-export async function getIndustries() {
+// 업종(industry)·테마(theme)별 등락 (마지막 시세 기준, 등락률 높은 순)
+async function getGroups(kind) {
   const all = [];
-  for (let page = 1; page <= 5; page++) {
-    const j = await fetchJson(`https://m.stock.naver.com/api/stocks/industry?page=${page}&pageSize=50`, { headers: REFERER, retries: 0 }).catch(
+  for (let page = 1; page <= 20; page++) {
+    const j = await fetchJson(`https://m.stock.naver.com/api/stocks/${kind}?page=${page}&pageSize=50`, { headers: REFERER, retries: 0 }).catch(
       () => null
     );
     if (!j?.groups?.length) break;
-    all.push(...j.groups.map((g) => ({ name: g.name, changePct: toNumber(g.changeRate), count: g.totalCount, up: g.riseCount, down: g.fallCount })));
+    all.push(...j.groups.map((g) => ({ no: g.no, name: g.name, changePct: toNumber(g.changeRate), count: g.totalCount, up: g.riseCount, down: g.fallCount })));
   }
   return all;
+}
+
+export const getIndustries = () => getGroups("industry");
+export const getThemes = () => getGroups("theme");
+
+// 업종·테마에 속한 종목 (시가총액은 억 원)
+export const getIndustryStocks = (no) => getGroupStocks("industry", no);
+export const getThemeStocks = (no) => getGroupStocks("theme", no);
+
+async function getGroupStocks(kind, no) {
+  const all = [];
+  for (let page = 1; page <= 10; page++) {
+    const j = await fetchJson(`https://m.stock.naver.com/api/stocks/${kind}/${no}?page=${page}&pageSize=100`, { headers: REFERER });
+    if (!j.stocks?.length) break;
+    all.push(...j.stocks.map((s) => ({ code: s.itemCode, name: s.stockName, type: s.stockEndType, marketValue: toNumber(s.marketValue) })));
+    if (j.stocks.length < 100) break;
+  }
+  return all;
+}
+
+// 공모주: 청약 일정이 잡힌 기업과 상장 준비 중인 기업 (네이버 공모주 목록)
+const IPO_MARKET = { D: "코스닥", K: "코스피" };
+export async function getIpoList() {
+  const all = [];
+  for (let page = 1; page <= 5; page++) {
+    const j = await fetchJson(`https://m.stock.naver.com/api/stocks/ipo?page=${page}&pageSize=50`, { headers: REFERER });
+    if (!j.ipoCoInfos?.length) break;
+    all.push(...j.ipoCoInfos);
+    if (all.length >= (j.totalCount ?? 0)) break;
+  }
+  const blank = (v) => (v == null || v === "" ? null : v);
+  return all.map((x) => ({
+    code: x.itemCode,
+    name: x.itemName,
+    category: blank(x.bizCategory),
+    market: IPO_MARKET[x.marketClasses] ?? null,
+    stage: blank(x.ipoStatus), // 예비심사청구서제출 → 예비심사청구승인 → 증권신고서제출 → 수요예측 → 수요예측완료
+    subStart: blank(x.poStartDate), // 청약 시작일 YYYYMMDD
+    subEnd: blank(x.poEndDate),
+    listingDate: blank(x.listedDueDate),
+    priceLow: toNumber(x.expectedPoStart),
+    priceHigh: toNumber(x.expectedPoEnd),
+    price: toNumber(x.poPrice), // 확정 공모가
+    institutionRate: toNumber(x.instituteCompRate), // 기관 수요예측 경쟁률
+    subscriptionRate: toNumber(x.subscriptCompRate), // 일반 청약 경쟁률
+    leadManager: blank(x.leadManager),
+    coManager: blank(x.coHost),
+    url: x.endUrl || null,
+    docs: (x.ipoInvestInfoList || []).filter((d) => d.contentUrl).map((d) => ({ title: d.articleTitle, url: d.contentUrl })),
+  }));
+}
+
+// 공모주 상세: 수요예측 결과, 공모 규모, 최근 실적 (금액은 원)
+export async function getIpoDetail(code) {
+  const j = await fetchJson(`https://m.stock.naver.com/front-api/ipo/detail?code=${encodeURIComponent(code)}`, { headers: REFERER });
+  const r = j.result || j;
+  const reg = r.registrationStatement || {};
+  const fin = r.registrationStatementDetail || {};
+  const df = r.demandForecastingResult || {};
+  return {
+    rate: df.cmptnRate ?? null, // 기관 수요예측 경쟁률
+    fixedPrice: df.fixPubPrice ?? null,
+    amount: df.fnlPoPrice ?? reg.pubPriceEnd ?? null, // 확정 공모금액, 없으면 희망 상단 기준 금액
+    bandLow: reg.hopePubStart ?? null,
+    bandHigh: reg.hopePubEnd ?? null,
+    // 재무: n0 = 최근(분기 누적일 수 있음), n1 = 직전 연도, n2 = 그 전 연도
+    fin: fin.notEmpty
+      ? {
+          periods: [fin.n0Ptitle, fin.n1Ptitle, fin.n2Ptitle],
+          sales: [fin.n0Sales, fin.n1Sales, fin.n2Sales],
+          opProfit: [fin.n0BizPrft, fin.n1BizPrft, fin.n2BizPrft],
+        }
+      : null,
+    majorHolderRatio: r.listedExamination?.largstShareRatio ?? null,
+    companyClass: r.listedExamination?.compClass ?? null,
+  };
 }
 
 // 종목명(또는 코드 일부)으로 국내 종목 찾기

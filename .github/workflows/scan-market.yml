@@ -32,13 +32,20 @@ jobs:
           # data 브랜치가 아직 없으면(첫 실행) 빈 기록으로 시작
           if git fetch -q --depth=1 origin data 2>/dev/null; then
             git show FETCH_HEAD:history.json > out/history.json || echo '{}' > out/history.json
+            git show FETCH_HEAD:theme-history.json > out/theme-history.json || echo '{}' > out/theme-history.json
+            # 테마를 처음 본 날 기록 (새로 생긴 테마 찾기용). 없으면 이번 실행이 첫 기록
+            git show FETCH_HEAD:theme-catalog.json > out/theme-catalog.json || rm -f out/theme-catalog.json
+            # 장중 실행이라 테마를 새로 못 만들면 이전 결과를 그대로 둠
+            git show FETCH_HEAD:kr-themes.json > out/kr-themes.json || rm -f out/kr-themes.json
           else
             echo '{}' > out/history.json
+            echo '{}' > out/theme-history.json
           fi
-          echo "기록된 날짜: $(node -e "console.log(Object.keys(require('./out/history.json')).sort().join(' '))")"
+          echo "상위 30 기록 날짜: $(node -e "console.log(Object.keys(require('./out/history.json')).sort().join(' '))")"
+          echo "테마 기록 날짜 수: $(node -e "console.log(Object.keys(require('./out/theme-history.json')).length)")"
 
       - name: 전체 종목 점수 계산
-        run: node scripts/scan-market.js --out out/top30.json --history out/history.json
+        run: node scripts/scan-market.js --out out/top30.json --history out/history.json --theme-history out/theme-history.json --theme-catalog out/theme-catalog.json
 
       - name: data 브랜치에 결과 저장
         env:
@@ -50,7 +57,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # 이 브랜치는 데이터 저장용이라 Vercel이 배포하지 않게 함
           echo '{ "git": { "deploymentEnabled": false } }' > vercel.json
-          git add top30.json history.json kr-briefing.json vercel.json
+          # 장중 실행이면 테마 파일이 없을 수 있어 있는 파일만 저장
+          git add -A
           git commit -q -m "전체 종목 점수 $(date -u +%Y-%m-%dT%H:%MZ)"
-          # git 기록은 쌓지 않고 덮어쓰기 (날짜별 순위 기록은 history.json 안에 60거래일치 보관)
+          # git 기록은 쌓지 않고 덮어쓰기 (날짜별 기록은 history.json·theme-history.json 안에 60거래일치 보관)
           git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" data
