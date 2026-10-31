@@ -215,7 +215,7 @@ async function load({ quiet = false } = {}) {
   $("#refresh-btn").classList.remove("spinning");
 }
 
-// ---------- 전체 상위 30 탭 ----------
+// ---------- 한국주식 상위 30 탭 ----------
 
 let top30Loaded = 0;
 
@@ -249,15 +249,169 @@ async function loadTop30() {
   }
 }
 
-function showView(view) {
-  const top = view === "top30";
-  $("#view-top30").hidden = !top;
-  $("#view-themes").hidden = top;
-  $("#tab-top30").setAttribute("aria-selected", top);
-  $("#tab-themes").setAttribute("aria-selected", !top);
-  if (top) loadTop30();
-  if (location.hash !== (top ? "#top30" : "")) history.replaceState(null, "", top ? "#top30" : location.pathname);
+// ---------- 미국 시장 브리핑 탭 ----------
+
+let briefingLoaded = 0;
+
+function quoteTile(q) {
+  if (!q.ok) return `<div class="quote"><div class="quote-name">${esc(q.name)}</div><div class="quote-price flat">-</div><div class="quote-chg flat">불러오지 못함</div></div>`;
+  const value =
+    q.kind === "yield"
+      ? `${q.price.toFixed(2)}%`
+      : `${num(q.price)}${q.unit ? `<small> ${esc(q.unit)}</small>` : ""}`;
+  const change =
+    q.kind === "yield"
+      ? `${arrow(q.price - q.prevClose)} ${Math.abs(Math.round((q.price - q.prevClose) * 100))}bp`
+      : `${arrow(q.changePct)} ${pct(q.changePct)}`;
+  const d = q.kind === "yield" ? dir(q.price - q.prevClose) : dir(q.changePct);
+  return `<div class="quote"><div class="quote-name">${esc(q.name)} <span class="sub">${esc(q.symbol)}</span></div>
+    <div class="quote-price">${value}</div><div class="quote-chg ${d}">${change}</div></div>`;
 }
+
+async function loadBriefing() {
+  if (Date.now() - briefingLoaded < 600_000) return;
+  $("#briefing-summary").innerHTML = Array.from({ length: 5 }, () => `<li class="skeleton" style="height:42px"></li>`).join("");
+  try {
+    const b = await getJson("/api/briefing");
+    briefingLoaded = Date.now();
+    if (b.sessionDate) {
+      const d = new Date(`${b.sessionDate}T12:00:00`);
+      $("#briefing-title").textContent = `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]}) 미국 시장 브리핑`;
+    }
+    $("#briefing-summary").innerHTML = b.summary.map((l) => `<li>${esc(l)}</li>`).join("");
+    $("#briefing-indices").innerHTML = b.indices.map(quoteTile).join("");
+    $("#briefing-macro").innerHTML = b.macro.map(quoteTile).join("");
+    $("#briefing-megacaps").innerHTML = [...b.megacaps].sort((a, c) => (c.changePct ?? -99) - (a.changePct ?? -99)).map(quoteTile).join("");
+
+    // 업종: 테마 흐름과 같은 막대 모양
+    const sectors = b.sectors.filter((s) => s.ok).sort((a, c) => c.changePct - a.changePct);
+    const maxAbs = Math.max(1, ...sectors.map((s) => Math.abs(s.changePct)));
+    $("#briefing-sectors").innerHTML = sectors
+      .map((s, i) => {
+        const w = (Math.abs(s.changePct) / maxAbs) * 50;
+        const pos = s.changePct >= 0 ? "left:50%" : `left:${50 - w}%`;
+        return `<div class="theme-row">
+          <div class="theme-rank">${i + 1}</div>
+          <div class="theme-name">${esc(s.name)}<small>${esc(s.symbol)}</small></div>
+          <div class="theme-bar"><div class="bar-track"><div class="bar-fill" style="${pos};width:${w}%;background:var(--${dir(s.changePct)})"></div></div></div>
+          <div class="theme-val num ${dir(s.changePct)}">${pct(s.changePct)}</div>
+        </div>`;
+      })
+      .join("");
+
+    $("#briefing-news").innerHTML = b.news.length
+      ? `<ul class="news">${b.news
+          .map(
+            (n) => `<li><a href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">
+              <span class="news-title">${esc(n.title)}</span>
+              <span class="news-meta">${esc(n.about)} · ${esc(n.press)} · ${newsTime(n.time)}</span></a></li>`
+          )
+          .join("")}</ul>`
+      : `<p class="sub">관련 뉴스가 없어요.</p>`;
+  } catch (e) {
+    $("#briefing-summary").innerHTML = `<li>브리핑을 불러오지 못했어요. (${esc(e.message)}) <button data-briefing-retry>다시 시도</button></li>`;
+  }
+}
+
+// ---------- 한국 시장 브리핑 탭 ----------
+
+let krLoaded = 0;
+
+function rankList(title, items, value) {
+  if (!items?.length) return `<div><p class="col-title">${title}</p><p class="sub">데이터 없음</p></div>`;
+  return `<div><p class="col-title">${title}</p><ol class="rank-list">${items
+    .map(
+      (s, i) => `<li>${s.code ? `<button data-code="${esc(s.code)}">` : "<div>"}
+        <span class="rn">${i + 1}</span><span class="nm">${esc(s.name)}</span>${value(s)}
+      ${s.code ? "</button>" : "</div>"}</li>`
+    )
+    .join("")}</ol></div>`;
+}
+
+async function loadKrBriefing() {
+  if (Date.now() - krLoaded < 600_000) return;
+  $("#kr-summary").innerHTML = Array.from({ length: 5 }, () => `<li class="skeleton" style="height:42px"></li>`).join("");
+  try {
+    const b = await getJson("/api/kr-briefing");
+    krLoaded = Date.now();
+    const d = b.basisDate;
+    const date = new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T12:00:00`);
+    $("#kr-title").textContent = `${date.getMonth() + 1}/${date.getDate()}(${"일월화수목금토"[date.getDay()]}) 한국 시장 브리핑`;
+    $("#kr-sub").textContent = `장 마감 기준 · 숫자로 자동 작성한 요약 · 계산 ${timeLabel(new Date(b.generatedAt))} · 평일 저녁 7시쯤 갱신`;
+    $("#kr-summary").innerHTML = b.summary.map((l) => `<li>${esc(l)}</li>`).join("");
+    $("#kr-indices").innerHTML = b.indices.map(quoteTile).join("");
+
+    // 투자자별 순매수 표
+    const inv = b.investors;
+    const cell = (v) => (v == null ? "<td>-</td>" : `<td class="num ${dir(v)}">${v > 0 ? "+" : ""}${v.toLocaleString("ko-KR")}억</td>`);
+    $("#kr-investors").innerHTML =
+      `<thead><tr><th>시장</th><th>외국인</th><th>기관</th><th>개인</th></tr></thead><tbody>` +
+      [["KOSPI", "코스피"], ["KOSDAQ", "코스닥"]]
+        .map(([k, label]) => (inv[k] ? `<tr><td>${label}</td>${cell(inv[k].foreign)}${cell(inv[k].institution)}${cell(inv[k].individual)}</tr>` : `<tr><td>${label}</td><td colspan="3">데이터 없음</td></tr>`))
+        .join("") +
+      `</tbody>`;
+
+    // 오른 종목·내린 종목 비율
+    const br = b.breadth;
+    const w = (n) => (br.total ? (n / br.total) * 100 : 0);
+    $("#kr-breadth-sub").textContent = `보통주 ${br.total.toLocaleString()}개`;
+    $("#kr-breadth").innerHTML = `<div class="breadth-bar">
+        <span style="width:${w(br.up)}%;background:var(--up)"></span><span style="width:${w(br.flat)}%;background:var(--muted)"></span><span style="width:${w(br.down)}%;background:var(--down)"></span>
+      </div>
+      <div class="breadth-legend">
+        <span>상승 <b class="up">${br.up.toLocaleString()}</b> (${w(br.up).toFixed(0)}%)</span>
+        <span>보합 <b>${br.flat.toLocaleString()}</b></span>
+        <span>하락 <b class="down">${br.down.toLocaleString()}</b> (${w(br.down).toFixed(0)}%)</span>
+        <span>상한가 <b class="up">${br.upperLimit}</b></span>
+        <span>하한가 <b class="down">${br.lowerLimit}</b></span>
+      </div>`;
+
+    // 업종
+    const pctVal = (s) => `<span class="vl ${dir(s.changePct)}">${pct(s.changePct)}</span>`;
+    if (b.industries) {
+      $("#kr-ind-sub").textContent = `네이버 업종 분류 ${b.industries.count}개 중`;
+      $("#kr-industries").innerHTML = rankList("많이 오른 업종", b.industries.top, pctVal) + rankList("많이 내린 업종", b.industries.bottom, pctVal);
+    } else {
+      $("#kr-industries").innerHTML = `<p class="sub">이번 계산은 장중에 실행돼서 업종 데이터를 넣지 않았어요.</p>`;
+    }
+
+    // 많이 움직인 종목
+    $("#kr-movers").innerHTML =
+      rankList("상승률 상위", b.movers.gainers, pctVal) +
+      rankList("하락률 상위", b.movers.losers, pctVal) +
+      rankList("거래대금 상위", b.movers.value, (s) => `<span class="vl">${s.value.toLocaleString("ko-KR")}억</span>${pctVal(s)}`);
+
+    $("#kr-news").innerHTML = b.news?.length
+      ? `<ul class="news">${b.news
+          .map(
+            (n) => `<li><a href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">
+              <span class="news-title">${esc(n.title)}</span>
+              <span class="news-meta">${esc(n.press)} · ${newsTime(n.time)}</span></a></li>`
+          )
+          .join("")}</ul>`
+      : `<p class="sub">뉴스를 불러오지 못했어요.</p>`;
+  } catch (e) {
+    $("#kr-summary").innerHTML = `<li>브리핑을 불러오지 못했어요. (${esc(e.message)}) <button data-kr-retry>다시 시도</button></li>`;
+  }
+}
+
+const VIEWS = ["themes", "top30", "briefing", "krbriefing"];
+
+function showView(view) {
+  if (!VIEWS.includes(view)) view = "themes";
+  for (const v of VIEWS) {
+    $(`#view-${v}`).hidden = v !== view;
+    $(`#tab-${v}`).setAttribute("aria-selected", v === view);
+  }
+  if (view === "top30") loadTop30();
+  if (view === "briefing") loadBriefing();
+  if (view === "krbriefing") loadKrBriefing();
+  const hash = view === "themes" ? "" : `#${view}`;
+  if (location.hash !== hash) history.replaceState(null, "", hash || location.pathname);
+}
+
+// 주소의 # 부분이 바뀌면(뒤로 가기, 주소 직접 입력) 그 탭으로
+window.addEventListener("hashchange", () => showView(location.hash.slice(1) || "themes"));
 
 document.querySelector(".tabs").addEventListener("click", (e) => {
   const tab = e.target.closest("[data-view]");
@@ -688,7 +842,7 @@ async function openMarket(id, range = "1d") {
 // ---------- 이벤트 ----------
 
 document.addEventListener("click", (e) => {
-  const card = e.target.closest(".card[data-code]");
+  const card = e.target.closest(".card[data-code], .rank-list [data-code]");
   if (card) return openDetail(card.dataset.code);
 
   const mkt = e.target.closest(".mkt[data-market]");
@@ -706,6 +860,14 @@ document.addEventListener("click", (e) => {
     return;
   }
 
+  if (e.target.closest("[data-kr-retry]")) {
+    krLoaded = 0;
+    return loadKrBriefing();
+  }
+  if (e.target.closest("[data-briefing-retry]")) {
+    briefingLoaded = 0;
+    return loadBriefing();
+  }
   if (e.target.closest("#top30 [data-retry]")) {
     top30Loaded = 0;
     return loadTop30();
@@ -830,4 +992,4 @@ setInterval(() => {
 }, REFRESH_MS);
 
 load();
-if (location.hash === "#top30") showView("top30");
+if (location.hash) showView(location.hash.slice(1));

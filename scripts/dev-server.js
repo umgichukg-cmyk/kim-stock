@@ -42,7 +42,8 @@ const server = http.createServer(async (req, res) => {
     const file = normalize(join(ROOT, path));
     if (!file.startsWith(normalize(ROOT)) || file.includes(`${normalize("/api/")}`)) throw { code: "ENOENT" };
     const body = await readFile(file);
-    res.writeHead(200, { "Content-Type": TYPES[extname(file)] || "application/octet-stream" });
+    // 고친 파일이 바로 보이도록 브라우저 캐시를 쓰지 않음
+    res.writeHead(200, { "Content-Type": TYPES[extname(file)] || "application/octet-stream", "Cache-Control": "no-cache" });
     res.end(body);
   } catch (e) {
     const notFound = e?.code === "ENOENT" || e?.code === "ERR_MODULE_NOT_FOUND";

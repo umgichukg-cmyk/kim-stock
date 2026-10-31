@@ -62,6 +62,67 @@ export async function getNews(code, count = 10) {
     .filter(Boolean);
 }
 
+// 증권 주요 뉴스 (시장 전체)
+export async function getMainNews(count = 10) {
+  const j = await fetchJson(`https://m.stock.naver.com/front-api/news/category?category=mainnews&pageSize=${count}&page=1`, {
+    headers: REFERER,
+  });
+  return (j.result || [])
+    .filter((a) => a.title)
+    .map((a) => {
+      const d = String(a.datetime); // YYYYMMDDHHmmss
+      return {
+        title: decodeEntities(a.titleFull || a.title),
+        press: decodeEntities(a.officeName),
+        time: `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T${d.slice(8, 10)}:${d.slice(10, 12)}:00+09:00`,
+        url: `https://n.news.naver.com/mnews/article/${a.officeId}/${a.articleId}`,
+      };
+    });
+}
+
+// 국내 지수 현재가 (KOSPI / KOSDAQ / KPI200). Yahoo는 한국 지수 전일 종가가 늦게 바뀔 때가 있어 네이버 값을 씀
+export async function getIndexQuote(index) {
+  const j = await fetchJson(`https://m.stock.naver.com/api/index/${index}/basic`, { headers: REFERER });
+  const price = toNumber(j.closePrice);
+  const change = toNumber(j.compareToPreviousClosePrice);
+  return { price, change, changePct: toNumber(j.fluctuationsRatio), prevClose: price != null && change != null ? price - change : null };
+}
+
+// 국내 지수 일봉 (오래된 순)
+export async function getIndexDaily(index, fromYmd, toYmd) {
+  const rows = await fetchJson(
+    `https://api.stock.naver.com/chart/domestic/index/${index}/day?startDateTime=${fromYmd}0000&endDateTime=${toYmd}2359`,
+    { headers: REFERER }
+  );
+  return (Array.isArray(rows) ? rows : []).map((r) => ({ date: String(r.localDate), close: r.closePrice })).filter((r) => r.close > 0);
+}
+
+// 시장 전체 투자자별 순매수 (억 원). bizdate(YYYYMMDD)를 주면 그날 기준
+export async function getIndexInvestors(index, bizdate) {
+  const j = await fetchJson(`https://m.stock.naver.com/api/index/${index}/trend${bizdate ? `?bizdate=${bizdate}` : ""}`, {
+    headers: REFERER,
+  });
+  return {
+    date: j.bizdate,
+    individual: toNumber(j.personalValue),
+    foreign: toNumber(j.foreignValue),
+    institution: toNumber(j.institutionalValue),
+  };
+}
+
+// 업종별 등락 (마지막 시세 기준, 등락률 높은 순)
+export async function getIndustries() {
+  const all = [];
+  for (let page = 1; page <= 5; page++) {
+    const j = await fetchJson(`https://m.stock.naver.com/api/stocks/industry?page=${page}&pageSize=50`, { headers: REFERER, retries: 0 }).catch(
+      () => null
+    );
+    if (!j?.groups?.length) break;
+    all.push(...j.groups.map((g) => ({ name: g.name, changePct: toNumber(g.changeRate), count: g.totalCount, up: g.riseCount, down: g.fallCount })));
+  }
+  return all;
+}
+
 // 종목명(또는 코드 일부)으로 국내 종목 찾기
 export async function searchStocks(query, limit = 10) {
   const url = `https://ac.stock.naver.com/ac?q=${encodeURIComponent(query)}&target=stock`;

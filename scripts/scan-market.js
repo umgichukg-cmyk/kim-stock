@@ -11,7 +11,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { listMarket, getDailyCandles, getInvestorFlows, getFundamentals } from "../api/_lib/naver.js";
+import { listMarket, getDailyCandles, getInvestorFlows, getFundamentals, getIndexInvestors, getIndustries, getIndexDaily } from "../api/_lib/naver.js";
 import { scoreStock } from "../api/_lib/score.js";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -61,7 +61,14 @@ async function pool(items, size, fn, label) {
 async function main() {
   const started = Date.now();
   const { today, closed } = koreaNow();
-  const dropToday = (rows) => (!closed && rows.at(-1)?.date === today ? rows.slice(0, -1) : rows);
+  let liveToday = false; // 장중에 실행해서 진행 중인 오늘 데이터를 뺐는지
+  const dropToday = (rows) => {
+    if (!closed && rows.at(-1)?.date === today) {
+      liveToday = true;
+      return rows.slice(0, -1);
+    }
+    return rows;
+  };
 
   // 1) 종목 목록과 제외
   const list = [...(await listMarket("KOSPI")), ...(await listMarket("KOSDAQ"))];
@@ -168,13 +175,126 @@ async function main() {
     items: top.map((s, i) => ({ rank: i + 1, streak: streakOf(s.code), ...s })),
   };
 
+  // 5) 한국 시장 브리핑 (같은 기준일)
+  const briefing = await buildKrBriefing({ stocks: withCandles.filter((s) => !s.error), basisDate, liveToday });
+
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(result));
   await writeFile(HISTORY, JSON.stringify(history));
+  await writeFile(join(dirname(OUT), "kr-briefing.json"), JSON.stringify(briefing));
+  console.log(`한국 시장 브리핑: ${briefing.summary.length}줄 · 업종 ${briefing.industries ? "포함" : "제외(장중 실행)"}`);
   console.log(`\n완료 ${((Date.now() - started) / 1000).toFixed(0)}초 · 점수 계산 ${ranked.length}개 · 실패 ${result.counts.failed}개`);
   console.log(`상위 ${TOP}: ${result.items.slice(0, 10).map((s) => `${s.name} ${s.score.total}`).join(", ")} ...`);
   console.log(`연속 진입: ${result.items.filter((s) => s.streak > 1).length}개 종목이 2일 이상 (기록 ${result.historyDays}일치)`);
   console.log(`저장: ${OUT}, ${HISTORY}`);
+}
+
+// ---------- 한국 시장 브리핑 ----------
+
+const sign = (v, d = 2) => `${v > 0 ? "+" : ""}${v.toFixed(d)}%`;
+const eok = (v) => `${v > 0 ? "+" : ""}${Math.round(v).toLocaleString("ko-KR")}억`;
+
+async function buildKrBriefing({ stocks, basisDate, liveToday }) {
+  const iso = `${basisDate.slice(0, 4)}-${basisDate.slice(4, 6)}-${basisDate.slice(6, 8)}`;
+
+  // 지수: 네이버 지수 일봉에서 기준일 종가와 그 전 거래일 종가
+  const idxList = [
+    { symbol: "KOSPI", name: "코스피" },
+    { symbol: "KOSDAQ", name: "코스닥" },
+    { symbol: "KPI200", name: "코스피200" },
+  ];
+  const from = new Date(Date.parse(`${iso}T00:00:00Z`) - 20 * 86400000).toISOString().slice(0, 10).replace(/-/g, "");
+  const indices = await Promise.all(
+    idxList.map(async (x) => {
+      const rows = (await getIndexDaily(x.symbol, from, basisDate).catch(() => [])).filter((r) => r.date <= basisDate);
+      const last = rows.at(-1);
+      const prev = rows.at(-2);
+      return last?.date === basisDate && prev
+        ? { ...x, ok: true, price: last.close, prevClose: prev.close, changePct: ((last.close - prev.close) / prev.close) * 100 }
+        : { ...x, ok: false };
+    })
+  );
+
+  // 시장 전체 투자자별 순매수 (억 원)
+  const investors = {};
+  for (const m of ["KOSPI", "KOSDAQ"]) {
+    investors[m] = await getIndexInvestors(m, basisDate)
+      .then((r) => (r.date === basisDate ? r : null))
+      .catch(() => null);
+  }
+
+  // 등락 종목 수와 상위 종목: 기준일 일봉 기준 (보통주 전체)
+  const day = stocks
+    .map((s) => {
+      const last = s.candles.at(-1);
+      const prev = s.candles.at(-2);
+      if (!last || !prev || last.date !== basisDate) return null;
+      return {
+        code: s.code,
+        name: s.name,
+        market: s.market,
+        price: last.close,
+        changePct: ((last.close - prev.close) / prev.close) * 100,
+        value: Math.round((last.close * last.volume) / 1e8), // 억 원
+      };
+    })
+    .filter(Boolean);
+  const breadth = {
+    total: day.length,
+    up: day.filter((d) => d.changePct > 0).length,
+    down: day.filter((d) => d.changePct < 0).length,
+    flat: day.filter((d) => d.changePct === 0).length,
+    upperLimit: day.filter((d) => d.changePct >= 29.5).length,
+    lowerLimit: day.filter((d) => d.changePct <= -29.5).length,
+  };
+  const liquidDay = day.filter((d) => d.value >= 10); // 그날 거래대금 10억 이상
+  const movers = {
+    gainers: [...liquidDay].sort((a, b) => b.changePct - a.changePct).slice(0, 10),
+    losers: [...liquidDay].sort((a, b) => a.changePct - b.changePct).slice(0, 10),
+    value: [...day].sort((a, b) => b.value - a.value).slice(0, 10),
+  };
+
+  // 업종: 네이버가 마지막 시세만 주므로, 장중에 실행했으면 기준일과 달라서 뺌
+  const all = liveToday ? [] : await getIndustries().catch(() => []);
+  const industries = all.length ? { count: all.length, top: all.slice(0, 7), bottom: all.slice(-7).reverse() } : null;
+
+  // 요약 문장
+  const summary = [];
+  const ok = indices.filter((x) => x.ok);
+  if (ok.length) {
+    const tone = ok.every((x) => x.changePct > 0) ? "동반 상승" : ok.every((x) => x.changePct < 0) ? "동반 하락" : "혼조";
+    // 3% 넘게 움직인 지수는 방향별로 묶어서 한 번만
+    const big = [];
+    for (const [test, word] of [[(v) => v >= 3, "급등"], [(v) => v <= -3, "급락"]]) {
+      const names = ok.filter((x) => test(x.changePct)).map((x) => x.name);
+      if (names.length) big.push(`${names.join("·")} ${names.length === ok.length && names.length > 1 ? "모두 " : ""}3% 넘게 ${word}`);
+    }
+    summary.push(
+      `${ok.map((x) => `${x.name} ${x.price.toLocaleString("en-US", { maximumFractionDigits: 2 })}(${sign(x.changePct)})`).join(", ")} ${tone} 마감` +
+        (big.length ? ` · ${big.join(", ")}` : "")
+    );
+  }
+  for (const [m, label] of [["KOSPI", "코스피"], ["KOSDAQ", "코스닥"]]) {
+    const v = investors[m];
+    if (!v) continue;
+    const ranked = [["외국인", v.foreign], ["기관", v.institution], ["개인", v.individual]].sort((a, b) => b[1] - a[1]);
+    summary.push(`${label} 수급: 외국인 ${eok(v.foreign)}, 기관 ${eok(v.institution)}, 개인 ${eok(v.individual)} · ${ranked[0][0]} 순매수 주도`);
+  }
+  if (breadth.total) {
+    summary.push(
+      `보통주 ${breadth.total.toLocaleString()}개 중 상승 ${breadth.up.toLocaleString()} · 하락 ${breadth.down.toLocaleString()} · 보합 ${breadth.flat.toLocaleString()}` +
+        (breadth.upperLimit || breadth.lowerLimit ? ` (상한가 ${breadth.upperLimit}, 하한가 ${breadth.lowerLimit})` : "")
+    );
+  }
+  if (industries) {
+    const t = industries.top.slice(0, 3).map((g) => `${g.name}(${sign(g.changePct)})`).join(", ");
+    const b = industries.bottom.slice(0, 3).map((g) => `${g.name}(${sign(g.changePct)})`).join(", ");
+    summary.push(`강한 업종 ${t} · 약한 업종 ${b}`);
+  }
+  if (movers.value.length) {
+    summary.push(`거래대금 상위: ${movers.value.slice(0, 3).map((s) => `${s.name}(${sign(s.changePct)})`).join(", ")}`);
+  }
+  return { basisDate, generatedAt: new Date().toISOString(), indices, investors, breadth, industries, movers, summary };
 }
 
 main().catch((e) => {

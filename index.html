@@ -40,9 +40,73 @@
     </section>
 
     <nav class="tabs" role="tablist" aria-label="화면 선택">
-      <button class="tab" role="tab" id="tab-themes" data-view="themes" aria-selected="true">오늘의 테마</button>
-      <button class="tab" role="tab" id="tab-top30" data-view="top30" aria-selected="false">전체 상위 30</button>
+      <button class="tab" role="tab" id="tab-themes" data-view="themes" aria-selected="true">미국 테마 흐름</button>
+      <button class="tab" role="tab" id="tab-top30" data-view="top30" aria-selected="false">한국주식 상위 30</button>
+      <button class="tab" role="tab" id="tab-briefing" data-view="briefing" aria-selected="false">미국 시장 브리핑</button>
+      <button class="tab" role="tab" id="tab-krbriefing" data-view="krbriefing" aria-selected="false">한국 시장 브리핑</button>
     </nav>
+
+    <section id="view-krbriefing" hidden>
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 id="kr-title">전일 한국 시장 브리핑</h2>
+            <p class="sub" id="kr-sub">장 마감된 마지막 한국 거래일 기준 · 숫자로 자동 작성한 요약이에요</p>
+          </div>
+        </div>
+        <ul class="briefing-summary" id="kr-summary"></ul>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>지수</h2></div></div>
+        <div class="quote-grid" id="kr-indices"></div>
+        <div class="panel-head" style="margin-top:18px"><div><h2>투자자별 순매수</h2><p class="sub">시장 전체 · 억 원</p></div></div>
+        <div class="table-wrap"><table class="flow-table" id="kr-investors"></table></div>
+        <div class="panel-head" style="margin-top:18px"><div><h2>오른 종목 · 내린 종목</h2><p class="sub" id="kr-breadth-sub"></p></div></div>
+        <div id="kr-breadth"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>업종별 등락</h2><p class="sub" id="kr-ind-sub">네이버 업종 분류</p></div></div>
+        <div class="two-col" id="kr-industries"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>많이 움직인 종목</h2><p class="sub">상승·하락률은 그날 거래대금 10억 원 이상 종목만 · 종목을 누르면 상세 분석</p></div></div>
+        <div class="three-col" id="kr-movers"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>주요 뉴스</h2><p class="sub">네이버 증권 주요 뉴스 · 지금 기준 · 누르면 원문이 새 창으로 열려요</p></div></div>
+        <div id="kr-news"></div>
+      </div>
+    </section>
+
+    <section id="view-briefing" hidden>
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 id="briefing-title">전일 미국 시장 브리핑</h2>
+            <p class="sub">장 마감된 마지막 미국 거래일 기준 · 숫자로 자동 작성한 요약이에요</p>
+          </div>
+        </div>
+        <ul class="briefing-summary" id="briefing-summary"></ul>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>주요 지수</h2></div></div>
+        <div class="quote-grid" id="briefing-indices"></div>
+        <div class="panel-head" style="margin-top:18px"><div><h2>금리·달러·원자재</h2></div></div>
+        <div class="quote-grid" id="briefing-macro"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>업종별 등락</h2><p class="sub">미국 11개 업종 대표 ETF · 많이 오른 순서</p></div></div>
+        <div class="themes" id="briefing-sectors"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>빅테크</h2></div></div>
+        <div class="quote-grid" id="briefing-megacaps"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>관련 뉴스</h2><p class="sub">빅테크 종목 관련 네이버 뉴스 · 누르면 원문이 새 창으로 열려요</p></div></div>
+        <div id="briefing-news"></div>
+      </div>
+    </section>
 
     <section class="panel" id="view-top30" hidden>
       <div class="panel-head">
