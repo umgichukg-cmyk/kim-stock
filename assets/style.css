@@ -286,6 +286,11 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .flow-scroll thead th { position: sticky; top: 0; background: var(--surface); }
 .totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .stat.total b { font-size: 17px; }
+.stat.total .avg { display: flex; justify-content: space-between; gap: 4px; margin-top: 4px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.stat.total .avg em { color: var(--muted); font-style: normal; font-weight: 500; }
+.stat.total .avg + .avg { margin-top: 1px; }
+.flow-table .side { display: block; color: var(--muted); font-size: 10.5px; font-weight: 500; }
+.avg-note { margin-top: 6px; font-size: 11.5px; }
 .stat.total i { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 2px; vertical-align: middle; }
 .table-wrap { overflow-x: auto; }
 .flow-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12.5px; }
@@ -319,6 +324,8 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   .score-grid { grid-template-columns: 1fr; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat.total { padding: 10px; }
+  .stat.total .avg { font-size: 10.5px; gap: 2px; }
   .quote-grid, #briefing-indices, #kr-indices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .two-col, .three-col { grid-template-columns: 1fr; }
   .rank-list .cnt { display: none; }

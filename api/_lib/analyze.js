@@ -6,12 +6,15 @@ import { scoreStock, priceStats } from "./score.js";
 
 // 한 종목의 시세 + 일봉 + 수급 + 점수
 export async function analyzeStock(code, { withCandles = false } = {}) {
-  const [quote, candles, flows, fundamentals] = await Promise.all([
+  const [quote, candles, rawFlows, fundamentals] = await Promise.all([
     getQuote(code),
     getDailyCandles(code),
     getInvestorFlows(code, 30).catch(() => []), // 수급이 없어도 기술 점수는 계산
     getFundamentals(code).catch(() => null), // 재무가 없어도(ETF 등) 나머지는 계산
   ]);
+  // 수급 평단 추정용 하루 대표가격 (고가 + 저가 + 종가) ÷ 3 - 실제 투자자별 체결가는 공개되지 않아요
+  const typical = new Map(candles.map((c) => [c.date, (c.high + c.low + c.close) / 3]));
+  const flows = rawFlows.map((f) => ({ ...f, typical: typical.get(f.date) ?? f.close }));
   const stats = priceStats(candles);
   const score = scoreStock(candles, flows, fundamentals);
   return {

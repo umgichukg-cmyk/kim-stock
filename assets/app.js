@@ -805,15 +805,20 @@ function flowChart(flows) {
   </svg>`;
 }
 
+// 그날 순매수 금액 + 매수/매도 구분과 추정 평균단가
+function flowCell(f, k) {
+  const v = f[`${k}Amt`];
+  const side = f[k] > 0 ? "매수" : f[k] < 0 ? "매도" : "";
+  return `<td class="num ${dir(v)}">${eok(v)}${side ? `<small class="side">${side} ${won(f.typical ?? f.close)}</small>` : ""}</td>`;
+}
+
 function flowTable(flows) {
   const rows = [...flows]
     .reverse()
     .map(
       (f) => `<tr><td>${f.date.slice(0, 4)}.${dateLabel(f.date)}</td>
         <td class="num">${won(f.close)}</td>
-        <td class="num ${dir(f.foreignAmt)}">${eok(f.foreignAmt)}</td>
-        <td class="num ${dir(f.institutionAmt)}">${eok(f.institutionAmt)}</td>
-        <td class="num ${dir(f.individualAmt)}">${eok(f.individualAmt)}</td>
+        ${flowCell(f, "foreign")}${flowCell(f, "institution")}${flowCell(f, "individual")}
         <td class="num">${f.foreignHoldRatio == null ? "-" : `${f.foreignHoldRatio.toFixed(2)}%`}</td></tr>`
     )
     .join("");
@@ -823,15 +828,23 @@ function flowTable(flows) {
 // 선택한 기간의 외국인/기관/개인 누적 순매수
 function flowTotals(flows) {
   const sum = (k) => flows.reduce((s, f) => s + f[k], 0);
-  const box = (label, color, v) =>
-    `<div class="stat total"><span><i style="background:${color}"></i>${label} 누적</span><b class="${dir(v)}">${eok(v)}</b></div>`;
+  // 순매수한 날만 모아 (금액 합 ÷ 수량 합), 순매도한 날도 같은 방식 - 하루 대표가격 기준 추정치
+  const avg = (k, sign) => {
+    const days = flows.filter((f) => Math.sign(f[k]) === sign);
+    const qty = days.reduce((s, f) => s + f[k], 0);
+    return { price: qty ? days.reduce((s, f) => s + f[k] * (f.typical ?? f.close), 0) / qty : null, days: days.length };
+  };
+  const avgLine = (label, cls, a) =>
+    `<small class="avg"><em>${label} 평단</em> <strong class="${a.price == null ? "" : cls}">${a.price == null ? "-" : `${won(a.price)}원`}</strong> <em>${a.days}일</em></small>`;
+  const box = (label, color, v, k) =>
+    `<div class="stat total"><span><i style="background:${color}"></i>${label} 누적</span><b class="${dir(v)}">${eok(v)}</b>${avgLine("순매수", "up", avg(k, 1))}${avgLine("순매도", "down", avg(k, -1))}</div>`;
   const first = flows[0]?.foreignHoldRatio;
   const last = flows.at(-1)?.foreignHoldRatio;
   const holdChange = first != null && last != null ? last - first : null;
   return `<div class="totals">
-    ${box("외국인", "var(--foreign)", sum("foreignAmt"))}
-    ${box("기관", "var(--institution)", sum("institutionAmt"))}
-    ${box("개인", "var(--individual)", sum("individualAmt"))}
+    ${box("외국인", "var(--foreign)", sum("foreignAmt"), "foreign")}
+    ${box("기관", "var(--institution)", sum("institutionAmt"), "institution")}
+    ${box("개인", "var(--individual)", sum("individualAmt"), "individual")}
     <div class="stat total"><span>외국인 보유율 변화</span><b class="${dir(holdChange)}">${holdChange == null ? "-" : `${holdChange > 0 ? "+" : ""}${holdChange.toFixed(2)}%p`}</b></div>
   </div>`;
 }
@@ -851,7 +864,7 @@ function renderFlows(all, days) {
     <div class="legend" style="margin-bottom:6px"><span><i style="background:var(--foreign)"></i>외국인</span><span><i style="background:var(--institution)"></i>기관</span><span><i style="background:var(--individual)"></i>개인</span></div>
     ${flowChart(flows)}
     ${flows.length ? flowTable(flows) : ""}
-    ${flows.length ? `<div class="section-title" style="margin-top:14px"><span>기간 누적 순매수</span><span class="sub">${range}</span></div>${flowTotals(flows)}` : ""}`;
+    ${flows.length ? `<div class="section-title" style="margin-top:14px"><span>기간 누적 순매수</span><span class="sub">${range}</span></div>${flowTotals(flows)}<p class="sub avg-note">평단은 순매수(순매도)한 날의 수량에 그날 대표가격 (고가 + 저가 + 종가) ÷ 3을 곱해 낸 추정치예요. 투자자별 실제 체결가는 공개되지 않아 차이가 있을 수 있어요.</p>` : ""}`;
 }
 
 function drawCandles(el, candles, stats) {
