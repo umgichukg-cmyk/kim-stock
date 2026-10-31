@@ -163,7 +163,7 @@ function renderPicks(failed = []) {
   const list = state.picks.filter((p) => state.filter === "전체" || p.theme === state.filter);
   if (!list.length) {
     const msg = state.topThemes.length ? "표시할 종목이 없어요." : "전일 미국장에서 오른 테마가 없어서 점수화할 종목이 없어요.";
-    $("#picks").innerHTML = `<div class="state">${msg}<br><small>위쪽 검색창에 종목코드를 넣으면 아무 종목이나 분석할 수 있어요.</small></div>`;
+    $("#picks").innerHTML = `<div class="state">${msg}<br><small>위쪽 검색창에 종목명이나 종목코드를 넣으면 아무 종목이나 분석할 수 있어요.</small></div>`;
     return;
   }
   const cards = list.map((p) => cardHtml(p, { tag: p.theme })).join("");
