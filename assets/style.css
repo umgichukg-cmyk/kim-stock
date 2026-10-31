@@ -143,6 +143,12 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .rank-list .rn { width: 18px; color: var(--muted); font: 600 12px "Space Grotesk", sans-serif; }
 .rank-list .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .rank-list .vl { font: 600 12.5px "Space Grotesk", "Noto Sans KR", sans-serif; white-space: nowrap; }
+.rank-list .sc { flex: none; min-width: 28px; padding: 1px 0; border-radius: 6px; text-align: center; font: 700 11.5px "Space Grotesk", sans-serif; color: #fff; }
+.rank-list .sc.hi { background: var(--up); }
+.rank-list .sc.good { background: var(--accent); }
+.rank-list .sc.mid { background: var(--muted); }
+.rank-list .sc.low { background: var(--down); }
+.rank-list .sc.na { background: var(--border); color: var(--muted); }
 
 /* 테마 */
 .themes { display: grid; gap: 6px; }

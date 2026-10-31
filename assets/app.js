@@ -375,11 +375,17 @@ async function loadKrBriefing() {
       $("#kr-industries").innerHTML = `<p class="sub">이번 계산은 장중에 실행돼서 업종 데이터를 넣지 않았어요.</p>`;
     }
 
-    // 많이 움직인 종목
+    // 많이 움직인 종목 (종합 점수 함께)
+    const scoreVal = (s) => {
+      const t = s.score?.total;
+      if (t == null) return `<span class="sc na" title="${esc(s.score?.grade || "점수 없음")}">-</span>`;
+      const level = t >= 75 ? "hi" : t >= 60 ? "good" : t >= 45 ? "mid" : "low";
+      return `<span class="sc ${level}" title="종합 ${t}점 · ${esc(s.score.grade)}">${t}</span>`;
+    };
     $("#kr-movers").innerHTML =
-      rankList("상승률 상위", b.movers.gainers, pctVal) +
-      rankList("하락률 상위", b.movers.losers, pctVal) +
-      rankList("거래대금 상위", b.movers.value, (s) => `<span class="vl">${s.value.toLocaleString("ko-KR")}억</span>${pctVal(s)}`);
+      rankList("상승률 상위", b.movers.gainers, (s) => scoreVal(s) + pctVal(s)) +
+      rankList("하락률 상위", b.movers.losers, (s) => scoreVal(s) + pctVal(s)) +
+      rankList("거래대금 상위", b.movers.value, (s) => `<span class="vl">${s.value.toLocaleString("ko-KR")}억</span>${scoreVal(s)}${pctVal(s)}`);
 
     $("#kr-news").innerHTML = b.news?.length
       ? `<ul class="news">${b.news

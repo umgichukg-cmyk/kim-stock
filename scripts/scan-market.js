@@ -107,38 +107,34 @@ async function main() {
 
   // 3) 수급·재무 받아서 점수 계산
   console.log("수급·재무 받는 중...");
-  const scored = await pool(
-    liquid,
-    CONCURRENCY,
-    async (s) => {
-      const [flows, fundamentals] = await Promise.all([
-        getInvestorFlows(s.code, 20).then(dropToday).catch(() => []),
-        getFundamentals(s.code).catch(() => null),
-      ]);
-      const score = scoreStock(s.candles, flows, fundamentals);
-      const last = s.candles.at(-1);
-      const prev = s.candles.at(-2);
-      return {
-        code: s.code,
-        name: s.name,
-        market: s.market,
-        date: last.date,
-        price: last.close,
-        changePct: prev ? ((last.close - prev.close) / prev.close) * 100 : null,
-        avgValue: Math.round(s.avgValue / 1e8), // 억 원
-        score: {
-          total: score.total,
-          grade: score.grade,
-          complete: score.complete,
-          technical: { score: score.technical.score, max: score.technical.max },
-          supply: { score: score.supply.score, max: score.supply.max },
-          basic: { score: score.basic.score, max: score.basic.max },
-        },
-        spark: s.candles.slice(-30).map((c) => c.close),
-      };
-    },
-    "점수"
-  );
+  const scoreOne = async (s) => {
+    const [flows, fundamentals] = await Promise.all([
+      getInvestorFlows(s.code, 20).then(dropToday).catch(() => []),
+      getFundamentals(s.code).catch(() => null),
+    ]);
+    const score = scoreStock(s.candles, flows, fundamentals);
+    const last = s.candles.at(-1);
+    const prev = s.candles.at(-2);
+    return {
+      code: s.code,
+      name: s.name,
+      market: s.market,
+      date: last.date,
+      price: last.close,
+      changePct: prev ? ((last.close - prev.close) / prev.close) * 100 : null,
+      avgValue: Math.round(s.avgValue / 1e8), // 억 원
+      score: {
+        total: score.total,
+        grade: score.grade,
+        complete: score.complete,
+        technical: { score: score.technical.score, max: score.technical.max },
+        supply: { score: score.supply.score, max: score.supply.max },
+        basic: { score: score.basic.score, max: score.basic.max },
+      },
+      spark: s.candles.slice(-30).map((c) => c.close),
+    };
+  };
+  const scored = await pool(liquid, CONCURRENCY, scoreOne, "점수");
 
   // 기준일에 거래된 종목만, 점수 높은 순 (같으면 거래대금 큰 순)
   const ranked = scored
@@ -177,6 +173,19 @@ async function main() {
 
   // 5) 한국 시장 브리핑 (같은 기준일)
   const briefing = await buildKrBriefing({ stocks: withCandles.filter((s) => !s.error), basisDate, liveToday });
+
+  // 많이 움직인 종목에 종합 점수 붙이기. 위에서 계산한 종목은 그대로 쓰고,
+  // 거래대금 조건 밖이라 계산하지 않은 종목(신규 상장, 그날만 거래가 몰린 종목 등)은 여기서 계산
+  const scoreByCode = new Map(scored.filter((s) => !s.error).map((s) => [s.code, s.score]));
+  const moverCodes = [...new Set(Object.values(briefing.movers).flat().map((m) => m.code))];
+  const missing = moverCodes.filter((c) => !scoreByCode.has(c)).map((c) => withCandles.find((s) => s.code === c)).filter(Boolean);
+  for (const r of await pool(missing, CONCURRENCY, scoreOne, "움직인 종목 점수")) if (!r.error) scoreByCode.set(r.code, r.score);
+  for (const list of Object.values(briefing.movers)) {
+    for (const m of list) {
+      const sc = scoreByCode.get(m.code);
+      m.score = sc ? { total: sc.total, grade: sc.grade } : null;
+    }
+  }
 
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(result));
