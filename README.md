@@ -92,6 +92,14 @@ node scripts/backtest-strategies.js --from 2025-01-02 --n 20 --cost 0.25
 - 누적·연환산 수익률, 최대 낙폭, 전반기/후반기 수익률, 월 승률 출력
 - 한계: 지금 상장된 종목만 써서 상장폐지 종목이 빠짐 (결과가 실제보다 좋게 나올 수 있음)
 
+## 로그인 · 관심 종목 · 메모 (Supabase)
+
+- 가족 계정으로 로그인하면 종목 상세의 **☆ 관심** 버튼과 **내 메모**를 쓸 수 있고, **관심 종목** 탭에 모아 볼 수 있어요.
+- 저장한 내용은 본인만 볼 수 있어요 (데이터베이스 보안 규칙 RLS).
+- 화면 코드의 Supabase 키는 공개용(publishable) 키예요. secret 키는 코드에 넣지 않아요.
+- 처음 설정: Supabase SQL Editor에서 `supabase/schema.sql` 실행 → Authentication에서 새 가입 막기 → 가족 계정 직접 추가.
+- Supabase 라이브러리는 로그인 기록이 있거나 로그인 창을 열 때만 불러와요.
+
 ## Vercel 배포
 
 1. 이 저장소를 GitHub에 올립니다.

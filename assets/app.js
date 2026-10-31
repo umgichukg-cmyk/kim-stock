@@ -1,6 +1,8 @@
 // 김가네 주식 - 화면
 // 데이터는 모두 /api/* 에서 받아오고, 받아오지 못하면 지어내지 않고 오류를 그대로 보여줍니다.
 
+import * as account from "./account.js";
+
 const $ = (sel) => document.querySelector(sel);
 const REFRESH_MS = 60_000;
 
@@ -647,7 +649,7 @@ async function loadIpo() {
   }
 }
 
-const VIEWS = ["themes", "top30", "briefing", "krbriefing", "krthemes", "limits", "ipo"];
+const VIEWS = ["themes", "top30", "briefing", "krbriefing", "krthemes", "limits", "ipo", "watch"];
 
 function showView(view) {
   if (!VIEWS.includes(view)) view = "themes";
@@ -668,6 +670,7 @@ function showView(view) {
   if (view === "ipo") loadIpo();
   if (view === "briefing") loadBriefing();
   if (view === "krbriefing") loadKrBriefing();
+  if (view === "watch") loadWatch();
   const hash = view === "themes" ? "" : `#${view}`;
   if (location.hash !== hash) history.replaceState(null, "", hash || location.pathname);
 }
@@ -953,7 +956,10 @@ async function openDetail(code) {
         <div class="card-meta">${esc(s.code)} · ${esc(s.market)}${pick ? ` · <span class="tag">${esc(pick.theme)}</span> 미국 테마 ${pct(pick.themeChange)}` : ""} · ${s.marketStatus === "OPEN" ? "장중" : "장 마감"}${st.days < 90 ? ` · <b>상장 후 ${st.days}거래일</b>` : ""}</div>
         <div class="detail-price"><span class="num">${won(s.price)}원</span><span class="num ${d}">${arrow(s.changePct)} ${won(Math.abs(s.change ?? 0))} (${pct(s.changePct)})</span></div>
       </div>
-      <button class="close-btn" data-close aria-label="닫기">×</button>
+      <div class="head-actions">
+        <button class="watch-btn" id="watch-btn" type="button" data-code="${esc(s.code)}" data-name="${esc(s.name)}" aria-pressed="false">☆ 관심</button>
+        <button class="close-btn" data-close aria-label="닫기">×</button>
+      </div>
     </div>
 
     <div class="stats">
@@ -980,6 +986,9 @@ async function openDetail(code) {
     <div class="section-title"><span>관련 뉴스</span><span class="sub">네이버 뉴스 · 누르면 원문이 새 창으로 열려요</span></div>
     <div id="news-section"><div class="skeleton" style="height:120px"></div></div>
 
+    <div class="section-title"><span>내 메모</span><span class="sub">로그인한 본인만 볼 수 있어요</span></div>
+    <div id="memo-section" data-code="${esc(s.code)}" data-name="${esc(s.name)}"></div>
+
     <div class="section-title"><span>점수 근거 · ${s.score.total == null ? "종합 점수 없음" : `종합 ${s.score.total}점`}</span>${
       s.score.total == null
         ? `<span class="sub">계산할 수 있는 항목이 100점 중 ${s.score.available}점뿐이라 종합 점수를 내지 않았어요</span>`
@@ -996,6 +1005,7 @@ async function openDetail(code) {
   `;
 
   loadNews(code);
+  renderAccountTools();
   renderFlows(s.flows, 20);
   $("#flow-section").addEventListener("click", (e) => {
     const btn = e.target.closest("[data-days]");
@@ -1290,6 +1300,218 @@ $("#search-form").addEventListener("submit", async (e) => {
 setInterval(() => {
   if (document.visibilityState === "visible" && !$("#detail").open) load({ quiet: true });
 }, REFRESH_MS);
+
+// ---------- 로그인 · 관심 종목 · 메모 ----------
+
+const fmtTime = (iso) => {
+  const t = new Date(iso);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${t.getFullYear()}.${p(t.getMonth() + 1)}.${p(t.getDate())} ${p(t.getHours())}:${p(t.getMinutes())}`;
+};
+const userLabel = (u) => (u?.email || "").split("@")[0];
+
+function renderAccountBtn() {
+  const u = account.currentUser();
+  const btn = $("#account-btn");
+  btn.textContent = u ? `${userLabel(u)} · 로그아웃` : "로그인";
+  btn.title = u ? `${u.email}로 로그인됨` : "가족 계정으로 로그인";
+}
+
+function openLogin() {
+  $("#login-error").hidden = true;
+  $("#login-password").value = "";
+  $("#login").showModal();
+  $("#login-email").focus();
+}
+
+$("#account-btn").addEventListener("click", async () => {
+  if (!account.currentUser()) return openLogin();
+  if (!confirm("로그아웃할까요?")) return;
+  await account.signOut();
+});
+
+$("#login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = $("#login-submit");
+  btn.disabled = true;
+  btn.textContent = "로그인 중…";
+  try {
+    await account.signIn($("#login-email").value.trim(), $("#login-password").value);
+    $("#login").close();
+  } catch (err) {
+    $("#login-error").textContent = err.message;
+    $("#login-error").hidden = false;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "로그인";
+    $("#login-password").value = "";
+  }
+});
+$("#login").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget || e.target.closest("[data-login-close]")) $("#login").close();
+});
+
+// 로그인 상태가 바뀌면 열려 있는 화면을 다시 그림
+account.onUserChange(() => {
+  renderAccountBtn();
+  watchLoaded = false;
+  if (!$("#view-watch").hidden) loadWatch();
+  renderAccountTools();
+});
+
+// 종목 상세의 관심 버튼과 메모
+async function renderAccountTools() {
+  const box = $("#memo-section");
+  const btn = $("#watch-btn");
+  if (!box || !btn) return;
+  const code = box.dataset.code;
+  if (!account.currentUser()) {
+    btn.textContent = "☆ 관심";
+    btn.setAttribute("aria-pressed", "false");
+    box.innerHTML = `<div class="memo-login">로그인하면 이 종목에 메모를 남기고 관심 종목으로 저장할 수 있어요. <button type="button" data-login-open>로그인</button></div>`;
+    return;
+  }
+  box.innerHTML = `<div class="skeleton" style="height:80px"></div>`;
+  try {
+    const [watched, memos] = await Promise.all([account.isWatched(code), account.listMemos(code)]);
+    if ($("#memo-section")?.dataset.code !== code) return; // 그사이 다른 종목을 열었으면 무시
+    btn.textContent = watched ? "★ 관심" : "☆ 관심";
+    btn.setAttribute("aria-pressed", String(watched));
+    box.innerHTML = `
+      <form class="memo-form" id="memo-form">
+        <textarea id="memo-input" maxlength="2000" rows="2" placeholder="이 종목에 대한 메모 (예: 산 이유, 목표가, 확인할 일)"></textarea>
+        <button class="primary-btn" type="submit">저장</button>
+      </form>
+      ${memos.length ? `<ul class="memos">${memos.map(memoItem).join("")}</ul>` : `<p class="sub">아직 메모가 없어요.</p>`}`;
+  } catch (e) {
+    box.innerHTML = `<div class="state">메모를 불러오지 못했어요.<br><small>${esc(e.message)}</small></div>`;
+  }
+}
+
+function memoItem(m) {
+  const edited = new Date(m.updated_at) - new Date(m.created_at) > 1000;
+  return `<li data-memo-id="${esc(m.id)}">
+    <p class="memo-body">${esc(m.body)}</p>
+    <div class="memo-meta"><span>${fmtTime(m.created_at)}${edited ? ` · 수정 ${fmtTime(m.updated_at)}` : ""}</span>
+      <span><button type="button" data-memo-edit>수정</button><button type="button" data-memo-del>삭제</button></span></div>
+  </li>`;
+}
+
+$("#detail").addEventListener("submit", async (e) => {
+  const form = e.target;
+  e.preventDefault();
+  const box = $("#memo-section");
+  try {
+    if (form.id === "memo-form") {
+      const body = $("#memo-input").value.trim();
+      if (!body) return;
+      form.querySelector("button").disabled = true;
+      await account.addMemo(box.dataset.code, box.dataset.name, body);
+    } else if (form.matches("[data-memo-edit-form]")) {
+      const body = form.querySelector("textarea").value.trim();
+      if (!body) return;
+      await account.updateMemo(form.closest("[data-memo-id]").dataset.memoId, body);
+    } else return;
+    watchLoaded = false;
+    renderAccountTools();
+  } catch (err) {
+    alert(`저장하지 못했어요: ${err.message}`);
+    form.querySelector("button").disabled = false;
+  }
+});
+
+$("#detail").addEventListener("click", async (e) => {
+  if (e.target.closest("[data-login-open]")) return openLogin();
+  const li = e.target.closest("[data-memo-id]");
+  if (li && e.target.closest("[data-memo-edit]")) {
+    const text = li.querySelector(".memo-body").textContent;
+    li.innerHTML = `<form class="memo-form" data-memo-edit-form><textarea maxlength="2000" rows="3">${esc(text)}</textarea>
+      <span class="memo-edit-actions"><button class="primary-btn" type="submit">저장</button><button type="button" data-memo-cancel>취소</button></span></form>`;
+    li.querySelector("textarea").focus();
+    return;
+  }
+  if (e.target.closest("[data-memo-cancel]")) return renderAccountTools();
+  if (li && e.target.closest("[data-memo-del]")) {
+    if (!confirm("이 메모를 지울까요? 지우면 되돌릴 수 없어요.")) return;
+    try {
+      await account.deleteMemo(li.dataset.memoId);
+      watchLoaded = false;
+      renderAccountTools();
+    } catch (err) {
+      alert(`지우지 못했어요: ${err.message}`);
+    }
+    return;
+  }
+  const wb = e.target.closest("#watch-btn");
+  if (wb) {
+    if (!account.currentUser()) return openLogin();
+    const on = wb.getAttribute("aria-pressed") === "true";
+    wb.disabled = true;
+    try {
+      if (on) await account.removeWatch(wb.dataset.code);
+      else await account.addWatch(wb.dataset.code, wb.dataset.name);
+      wb.textContent = on ? "☆ 관심" : "★ 관심";
+      wb.setAttribute("aria-pressed", String(!on));
+      watchLoaded = false;
+    } catch (err) {
+      alert(`저장하지 못했어요: ${err.message}`);
+    } finally {
+      wb.disabled = false;
+    }
+  }
+});
+
+// 관심 종목 탭
+let watchLoaded = false;
+
+async function loadWatch() {
+  if (watchLoaded) return;
+  const box = $("#watch");
+  if (!account.currentUser()) {
+    box.innerHTML = `<div class="state">로그인하면 관심 종목을 저장하고 여기서 한 번에 볼 수 있어요.<br><button type="button" data-login-open>로그인</button></div>`;
+    return;
+  }
+  box.innerHTML = Array.from({ length: 3 }, () => `<div class="skeleton" style="height:190px"></div>`).join("");
+  try {
+    const [list, memos] = await Promise.all([account.listWatch(), account.memoSummary()]);
+    if (!list.length) {
+      box.innerHTML = `<div class="state">아직 관심 종목이 없어요.<br><small>종목 상세 화면 위쪽의 ☆ 관심 버튼을 누르면 여기에 모여요.</small></div>`;
+      watchLoaded = true;
+      return;
+    }
+    const data = await getJson(`/api/watch?codes=${list.map((w) => w.code).join(",")}`);
+    const byCode = new Map(data.items.map((p) => [p.code, p]));
+    box.innerHTML = list
+      .map((w) => {
+        const p = byCode.get(w.code);
+        const memo = memos[w.code];
+        if (!p) return `<button class="card" data-code="${esc(w.code)}"><div class="card-name">${esc(w.name || w.code)}</div><div class="card-meta">${esc(w.code)} · 시세를 불러오지 못했어요</div></button>`;
+        const note = memo
+          ? `<p class="card-memo">📝 ${esc(memo.latest.body.slice(0, 60))}${memo.latest.body.length > 60 ? "…" : ""}</p></button>`
+          : "</button>";
+        return cardHtml(p, { extra: memo ? ` · 메모 ${memo.count}개` : "" }).replace(/<\/button>$/, note);
+      })
+      .join("");
+    $("#watch-sub").textContent = `${list.length}개 종목 · 최근 추가한 순서 · 로그인한 본인만 볼 수 있어요 · 시세 ${timeLabel(new Date(data.updatedAt))}`;
+    watchLoaded = true;
+  } catch (e) {
+    box.innerHTML = `<div class="state">불러오지 못했어요.<br><small>${esc(e.message)}</small><br><button type="button" data-watch-retry>다시 시도</button></div>`;
+  }
+}
+
+$("#view-watch").addEventListener("click", (e) => {
+  if (e.target.closest("[data-login-open]")) return openLogin();
+  if (e.target.closest("[data-watch-retry]")) return loadWatch();
+});
+
+// 이 브라우저에 로그인 기록이 있으면 연결 (없으면 Supabase 라이브러리를 아예 불러오지 않음)
+account
+  .restore()
+  .catch(() => null)
+  .finally(() => {
+    renderAccountBtn();
+    if (!$("#view-watch").hidden) loadWatch();
+  });
 
 load();
 if (location.hash) showView(location.hash.slice(1));
