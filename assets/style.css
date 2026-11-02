@@ -414,3 +414,14 @@ button.live-index:hover { border-color: var(--accent); transform: translateY(-2p
 .broker-stats { margin: 12px 0; }
 .broker-table .nm-cell { text-align: left; }
 .broker-table .story-link { white-space: nowrap; }
+
+/* 기준 시각 · 다음 업데이트 예정 */
+.update-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 6px 0 0; padding: 6px 10px; border-radius: 8px; background: var(--surface-2); color: var(--muted); font-size: 12px; }
+.update-line:empty { display: none; }
+.panel-head > div:first-child:has(.update-line) { flex: 1 1 0; min-width: 0; } /* 기준 줄이 있어도 장 종료 배지는 오른쪽에 */
+.update-line b { color: var(--text); font-weight: 700; }
+.update-line .next b { color: var(--accent); }
+.update-line .note { flex-basis: 100%; font-size: 11.5px; }
+@media (max-width: 640px) {
+  .panel-head > div:first-child:has(.update-line) { flex-basis: 100%; } /* 휴대폰은 배지를 아래 줄로 */
+}

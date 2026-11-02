@@ -4,3 +4,10 @@ node_modules/
 .cache/
 backtest-results/
 data/
+
+# 키움 앱키·시크릿키 파일 (절대 GitHub에 올리지 않음)
+kioom key/
+kiwoom key/
+*.key
+*appkey*
+*secretkey*

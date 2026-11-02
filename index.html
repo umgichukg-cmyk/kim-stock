@@ -67,6 +67,7 @@
           <div>
             <h2>한국 시장 장중 흐름</h2>
             <p class="sub" id="live-sub">네이버 실시간 시세 · 장중에는 1분마다 자동 갱신</p>
+            <p class="update-line" id="upd-krlive"></p>
           </div>
           <span class="live-badge" id="live-badge" hidden></span>
         </div>
@@ -101,6 +102,7 @@
         <div>
           <h2 id="limits-title">상한가·하한가</h2>
           <p class="sub" id="limits-sub">전일 한국 시장 종가 기준 · 상한가(하한가)로 마감한 보통주 · 거래대금 큰 순 · 색 상자는 종합 점수 · 종목을 누르면 상세 분석</p>
+          <p class="update-line" id="upd-limits"></p>
         </div>
         <span class="live-badge closed" title="장 마감된 결과를 보여주는 탭이에요">장 종료</span>
       </div>
@@ -113,6 +115,7 @@
         <div>
           <h2 id="krthemes-title">한국 테마 브리핑</h2>
           <p class="sub" id="krthemes-sub">전일 한국 시장 종가 기준 · 네이버 테마 분류 · 테마를 누르면 관련 종목</p>
+          <p class="update-line" id="upd-krthemes"></p>
         </div>
         <div class="head-right">
           <span class="live-badge closed" title="장 마감된 결과를 보여주는 탭이에요">장 종료</span>
@@ -142,6 +145,7 @@
           <div>
             <h2>공모주 청약 일정</h2>
             <p class="sub" id="ipo-sub">청약일 순 · 네이버 공모주 정보 · 30분마다 갱신</p>
+            <p class="update-line" id="upd-ipo"></p>
           </div>
         </div>
         <p class="notice" style="margin:0 0 8px"><b>청약 점수(참고용)</b> · 기관 경쟁률 40(1,000:1↑ 40, 500↑ 32, 200↑ 22, 100↑ 14) · 공모가 위치 25(희망 상단 초과 25, 상단 20, 범위 안 10, 하단 0) · 실적 20(최근 영업이익 흑자 8, 직전 연도 흑자 4, 매출 증가 4, 영업손익 개선 4) · 공모 규모 15(300억↓ 15, 500억↓ 12, 1,000억↓ 8, 3,000억↓ 5). 75점↑ 유리 · 60점↑ 양호 · 45점↑ 보통 · 그 아래 주의. 경쟁률과 공모가는 수요예측이 끝나야 나와서 그 전에는 종합 점수를 내지 않아요. 과거 데이터로 검증하지 않은 규칙이고, 상장 첫날 수익에 중요한 의무보유확약·유통 물량은 데이터가 없어 빠져 있어요. 점수가 높아도 손실이 날 수 있어요.</p>
@@ -162,6 +166,7 @@
           <div>
             <h2 id="kr-title">전일 한국 시장 브리핑</h2>
             <p class="sub" id="kr-sub">장 마감된 마지막 한국 거래일 기준 · 숫자로 자동 작성한 요약이에요</p>
+            <p class="update-line" id="upd-krbriefing"></p>
           </div>
           <span class="live-badge closed" title="장 마감된 결과를 보여주는 탭이에요">장 종료</span>
         </div>
@@ -195,6 +200,7 @@
           <div>
             <h2 id="briefing-title">전일 미국 시장 브리핑</h2>
             <p class="sub">장 마감된 마지막 미국 거래일 기준 · 숫자로 자동 작성한 요약이에요</p>
+            <p class="update-line" id="upd-briefing"></p>
           </div>
           <span class="live-badge closed" title="장 마감된 결과를 보여주는 탭이에요">장 종료</span>
         </div>
@@ -225,6 +231,7 @@
         <div>
           <h2>한국 시장 전체 점수 상위 30</h2>
           <p class="sub" id="top30-sub">마지막으로 끝난 장 기준 · 코스피·코스닥 일반 주식 전체를 점수화</p>
+          <p class="update-line" id="upd-top30"></p>
         </div>
         <span class="live-badge closed" title="장 마감된 결과를 보여주는 탭이에요">장 종료</span>
       </div>
@@ -238,6 +245,7 @@
         <div>
           <h2>미국 테마 브리핑</h2>
           <p class="sub"><span id="session-date">전일</span> 미국장 마감 기준 대표 종목 평균 등락 · 상승률 높은 순서 · <span id="top-count">상승한 테마</span>의 한국 종목을 아래에서 점수화</p>
+          <p class="update-line" id="upd-themes"></p>
         </div>
         <span class="live-badge closed" title="장 마감된 결과를 보여주는 탭이에요">장 종료</span>
       </div>

@@ -96,6 +96,139 @@ function renderMarket(items) {
     .join("");
 }
 
+// ---------- 기준 시각 · 다음 업데이트 예정 ----------
+// 한국 탭: GitHub Actions가 평일 19:00(한국 시각)에 계산해서 20~30분 뒤 반영
+// 미국 탭: 미국장 마감(뉴욕 16:00) 뒤 새로 열면 바로 반영. 휴장일은 따로 빼지 않아서 휴장일이면 하루 밀려요.
+
+const KST_MS = 9 * 3600_000;
+const DAY_MS = 86400_000;
+const WEEKDAY = "일월화수목금토";
+const kstParts = (ms) => {
+  const d = new Date(ms + KST_MS);
+  return { y: d.getUTCFullYear(), m: d.getUTCMonth(), d: d.getUTCDate(), w: d.getUTCDay(), hh: d.getUTCHours(), mm: d.getUTCMinutes() };
+};
+// 한국 시각으로 "11/2(월) 19:00"
+function kstLabel(ms, withTime = true) {
+  const p = kstParts(ms);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${p.m + 1}/${p.d}(${WEEKDAY[p.w]})${withTime ? ` ${pad(p.hh)}:${pad(p.mm)}` : ""}`;
+}
+// "YYYYMMDD" 또는 "YYYY-MM-DD" → 그날 0시를 UTC로 쓴 값 (요일 계산용)
+const dayUtc = (ymd) => {
+  const s = String(ymd).replace(/-/g, "");
+  return Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8));
+};
+const isWeekend = (utcDay) => [0, 6].includes(new Date(utcDay).getUTCDay());
+const ymdOf = (utcDay) => new Date(utcDay).toISOString().slice(0, 10).replace(/-/g, "");
+
+// 다음 한국 자동 계산 시각: 기준일 다음 평일 중 19:00(+40분 여유)이 아직 안 지난 첫날
+function nextKrUpdate(basisYmd, now = Date.now()) {
+  const p = kstParts(now);
+  let day = Date.UTC(p.y, p.m, p.d);
+  for (let i = 0; i < 14; i++, day += DAY_MS) {
+    if (isWeekend(day) || ymdOf(day) <= basisYmd) continue;
+    const run = day + 19 * 3600_000 - KST_MS;
+    if (run + 40 * 60_000 > now) return run;
+  }
+  return null;
+}
+
+// 그날 뉴욕 16:00(미국장 마감)의 실제 시각 (서머타임 자동 반영)
+function nyCloseMs(utcDay) {
+  const hourInNy = (t) => Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", hourCycle: "h23" }).format(t));
+  for (const offset of [4, 5]) {
+    const t = utcDay + (16 + offset) * 3600_000;
+    if (hourInNy(t) === 16) return t;
+  }
+  return utcDay + 21 * 3600_000;
+}
+
+// 다음 미국장 마감: 기준일 다음 평일 중 아직 마감 안 된 첫날
+function nextUsUpdate(sessionDate, now = Date.now()) {
+  let day = dayUtc(sessionDate) + DAY_MS;
+  for (let i = 0; i < 14; i++, day += DAY_MS) {
+    if (isWeekend(day)) continue;
+    const close = nyCloseMs(day);
+    if (close > now) return close;
+  }
+  return null;
+}
+
+function updateLineHtml(basis, next, note) {
+  return `<span>기준 <b>${basis}</b></span><span>→</span><span class="next">다음 업데이트 예정 <b>${next}</b></span><span class="note">${note}</span>`;
+}
+
+function krUpdateLine(sel, basisYmd, generatedAt) {
+  const el = $(sel);
+  if (!el || !basisYmd) return;
+  const basisDay = dayUtc(basisYmd);
+  const next = nextKrUpdate(basisYmd);
+  const made = generatedAt ? ` · 계산 ${kstLabel(new Date(generatedAt).getTime())}` : "";
+  el.innerHTML = updateLineHtml(
+    `${kstLabel(basisDay - KST_MS, false)} 장 마감${made}`,
+    next ? `${kstLabel(next)}~${kstLabel(next + 30 * 60_000).slice(-5)}` : "-",
+    "평일 저녁 7시에 자동 계산해서 20~30분 뒤 반영돼요. 휴장일에는 새 결과가 없어요."
+  );
+}
+
+// 다음 한국장 시작 (평일 09:00, 휴장일은 따로 빼지 않음)
+function nextKrOpen(now = Date.now()) {
+  const p = kstParts(now);
+  let day = Date.UTC(p.y, p.m, p.d);
+  for (let i = 0; i < 14; i++, day += DAY_MS) {
+    if (isWeekend(day)) continue;
+    const open = day + 9 * 3600_000 - KST_MS;
+    if (open > now) return open;
+  }
+  return null;
+}
+
+// 한국 시장 장중 흐름: 장중에는 1분마다, 장이 끝나면 다음 장 시작부터
+function liveUpdateLine(b) {
+  const el = $("#upd-krlive");
+  if (!el) return;
+  const at = b.tradedAt ? new Date(b.tradedAt).getTime() : new Date(b.updatedAt).getTime();
+  const status = LIVE_STATUS[b.status] || "";
+  if (b.status === "OPEN") {
+    el.innerHTML = updateLineHtml(
+      `${kstLabel(at)} 장중 시세`,
+      `${kstLabel(new Date(b.updatedAt).getTime() + 60_000).slice(-5)}쯤 (1분마다)`,
+      "장중에는 이 탭을 보고 있는 동안 1분마다 자동으로 새로 받아요."
+    );
+    return;
+  }
+  const open = nextKrOpen();
+  el.innerHTML = updateLineHtml(
+    `${kstLabel(at)}${status ? ` ${status}` : ""}`,
+    open ? `${kstLabel(open)} 장 시작` : "-",
+    "장이 열리면 1분마다 자동으로 새로 받아요. 휴장일이면 다음 거래일로 밀려요."
+  );
+}
+
+// 공모주 청약: 서버가 네이버 공모주 정보를 30분마다 새로 받아요
+function ipoUpdateLine(updatedAt) {
+  const el = $("#upd-ipo");
+  if (!el || !updatedAt) return;
+  const at = new Date(updatedAt).getTime();
+  el.innerHTML = updateLineHtml(
+    `${kstLabel(at)} 네이버 공모주 정보`,
+    `${kstLabel(at + 30 * 60_000)}쯤`,
+    "30분마다 새로 받아요. 그 뒤에 이 탭을 다시 열거나 새로고침하면 반영돼요."
+  );
+}
+
+function usUpdateLine(sel, sessionDate) {
+  const el = $(sel);
+  if (!el || !sessionDate) return;
+  const day = dayUtc(sessionDate);
+  const next = nextUsUpdate(sessionDate);
+  el.innerHTML = updateLineHtml(
+    `${kstLabel(day - KST_MS, false)} 미국장 마감 (한국 시각 ${kstLabel(nyCloseMs(day))})`,
+    next ? `${kstLabel(next)}쯤` : "-",
+    "미국장이 끝난 뒤 이 탭을 다시 열거나 새로고침하면 바로 반영돼요. 미국 휴장일이면 하루 밀려요."
+  );
+}
+
 // ---------- 테마 ----------
 
 function renderThemes(themes, topThemes, sessionDate) {
@@ -104,6 +237,7 @@ function renderThemes(themes, topThemes, sessionDate) {
     const d = new Date(`${sessionDate}T12:00:00`);
     const week = "일월화수목금토"[d.getDay()];
     $("#session-date").textContent = `${d.getMonth() + 1}/${d.getDate()}(${week})`;
+    usUpdateLine("#upd-themes", sessionDate);
   }
   const maxAbs = Math.max(1, ...themes.map((t) => Math.abs(t.avgChange ?? 0)));
   $("#themes").innerHTML = themes
@@ -229,6 +363,7 @@ async function loadTop30() {
     const data = await getJson("/api/top30");
     top30Loaded = Date.now();
     const d = data.basisDate;
+    krUpdateLine("#upd-top30", d, data.generatedAt);
     const date = new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T12:00:00`);
     const week = "일월화수목금토"[date.getDay()];
     $("#top30-sub").textContent =
@@ -279,6 +414,7 @@ async function loadBriefing() {
     if (b.sessionDate) {
       const d = new Date(`${b.sessionDate}T12:00:00`);
       $("#briefing-title").textContent = `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]}) 미국 시장 브리핑`;
+      usUpdateLine("#upd-briefing", b.sessionDate);
     }
     $("#briefing-summary").innerHTML = b.summary.map((l) => `<li>${esc(l)}</li>`).join("");
     $("#briefing-indices").innerHTML = b.indices.map(quoteTile).join("");
@@ -381,7 +517,8 @@ async function loadKrBriefing() {
     const d = b.basisDate;
     const date = new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T12:00:00`);
     $("#kr-title").textContent = `${date.getMonth() + 1}/${date.getDate()}(${"일월화수목금토"[date.getDay()]}) 한국 시장 브리핑`;
-    $("#kr-sub").textContent = `장 마감 기준 · 숫자로 자동 작성한 요약 · 계산 ${timeLabel(new Date(b.generatedAt))} · 평일 저녁 7시쯤 갱신`;
+    krUpdateLine("#upd-krbriefing", d, b.generatedAt);
+    $("#kr-sub").textContent = `장 마감 기준 · 숫자로 자동 작성한 요약`;
     $("#kr-summary").innerHTML = b.summary.map((l) => `<li>${esc(l)}</li>`).join("");
     $("#kr-indices").innerHTML = b.indices.map(quoteTile).join("");
 
@@ -528,8 +665,8 @@ async function loadKrLive({ quiet = false } = {}) {
     const b = await getJson("/api/kr-live");
     liveData = b;
     const status = LIVE_STATUS[b.status] || b.status || "";
-    const at = b.tradedAt ? b.tradedAt.slice(11, 16) : timeLabel(new Date(b.updatedAt));
-    $("#live-sub").textContent = `${status ? `${status} · ` : ""}${at} 기준 · 네이버 실시간 시세${b.status === "OPEN" ? " · 1분마다 자동 갱신" : ""}`;
+    $("#live-sub").textContent = `네이버 실시간 시세${b.status === "OPEN" ? " · 1분마다 자동 갱신" : ""}`;
+    liveUpdateLine(b);
     const badge = $("#live-badge");
     badge.hidden = !status;
     badge.textContent = status;
@@ -695,6 +832,7 @@ async function loadLimits() {
     const d = b.basisDate;
     const date = new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T12:00:00`);
     $("#limits-title").textContent = `${date.getMonth() + 1}/${date.getDate()}(${"일월화수목금토"[date.getDay()]}) 상한가·하한가`;
+    krUpdateLine("#upd-limits", d, b.generatedAt);
     // 많이 움직인 종목과 같은 모양: 순위 · 종목명 · 거래대금 · 종합 점수 · 등락률
     const val = (s) => `<span class="vl" style="color:var(--muted)">${s.value.toLocaleString("ko-KR")}억</span>${scoreBadge(s)}<span class="vl ${dir(s.changePct)}">${pct(s.changePct)}</span>`;
     const empty = (label) => `<div><p class="col-title">${label}</p><p class="sub">${label} 마감 종목이 없어요.</p></div>`;
@@ -751,6 +889,7 @@ async function loadKrThemes() {
     const d = krThemes.basisDate;
     const date = new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T12:00:00`);
     $("#krthemes-title").textContent = `${date.getMonth() + 1}/${date.getDate()}(${"일월화수목금토"[date.getDay()]}) 한국 테마 브리핑`;
+    krUpdateLine("#upd-krthemes", d, krThemes.generatedAt);
     $("#krthemes-sub").textContent = `전일 종가 기준 · 네이버 테마 ${krThemes.count}개 · 테마를 누르면 관련 종목`;
     // 새로 생긴 테마가 있으면 위쪽에 따로 알림 (누르면 관련 종목)
     const nt = krThemes.newThemes || [];
@@ -874,7 +1013,8 @@ async function loadIpo() {
     const order = (x) => (today >= x.subStart && today <= (x.subEnd || x.subStart) ? 0 : today < x.subStart ? 1 : 2);
     list.sort((a, c) => order(a) - order(c) || (order(a) === 2 ? c.subStart.localeCompare(a.subStart) : a.subStart.localeCompare(c.subStart)));
     const live = list.filter((x) => order(x) === 0).length;
-    $("#ipo-sub").textContent = `청약 중 ${live}개 · 예정 ${list.filter((x) => order(x) === 1).length}개 · 네이버 공모주 정보 · ${timeLabel(new Date(b.updatedAt))} 기준`;
+    $("#ipo-sub").textContent = `청약 중 ${live}개 · 예정 ${list.filter((x) => order(x) === 1).length}개 · 네이버 공모주 정보`;
+    ipoUpdateLine(b.updatedAt);
     $("#ipo-scheduled").innerHTML = list.length ? list.map((x) => ipoCard(x, today)).join("") : `<p class="sub">예정된 청약이 없어요.</p>`;
 
     const pend = b.pending;
