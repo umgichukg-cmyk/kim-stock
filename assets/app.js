@@ -911,7 +911,10 @@ function showView(view) {
   if (view === "ipo") loadIpo();
   if (view === "briefing") loadBriefing();
   if (view === "krbriefing") loadKrBriefing();
-  if (view === "watch") loadWatch();
+  if (view === "watch") {
+    loadWatch();
+    loadBroker();
+  }
   const hash = view === "krlive" ? "" : `#${view}`;
   if (location.hash !== hash) history.replaceState(null, "", hash || location.pathname);
 }
@@ -1692,7 +1695,10 @@ $("#login").addEventListener("click", (e) => {
 account.onUserChange(() => {
   renderAccountBtn();
   watchLoaded = false;
-  if (!$("#view-watch").hidden) loadWatch();
+  if (!$("#view-watch").hidden) {
+    loadWatch();
+    loadBroker();
+  }
   renderAccountTools();
 });
 
@@ -1801,6 +1807,72 @@ $("#detail").addEventListener("click", async (e) => {
 // 관심 종목 탭
 let watchLoaded = false;
 
+// 내 키움 계좌 (계좌 주인 계정에서만 보임, 조회 전용)
+async function loadBroker() {
+  const box = $("#broker");
+  if (!account.currentUser() || !account.hasBroker()) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  box.innerHTML = `<div class="skeleton" style="height:120px"></div>`;
+  let r;
+  try {
+    r = await account.getBrokerBalance();
+  } catch (e) {
+    r = { ok: false, status: 0, error: e.message };
+  }
+  if (!r.ok && r.status === 403) {
+    box.hidden = true; // 계좌 주인이 아닌 가족 계정
+    return;
+  }
+  if (!r.ok) {
+    box.innerHTML = `<div class="broker-head"><h2>내 키움 계좌</h2></div><div class="state">계좌를 불러오지 못했어요.<br><small>${esc(r.error)}</small><br><button type="button" data-broker-retry>다시 시도</button></div>`;
+    return;
+  }
+  renderBroker(r.data);
+}
+
+function renderBroker(b) {
+  const sm = b.summary;
+  const signWon = (v) => (v == null ? "-" : `${v > 0 ? "+" : ""}${won(v)}원`);
+  const tag = b.fake ? `<span class="tbadge turn">시험용 가짜 잔고</span>` : b.mock ? `<span class="tbadge turn">모의투자</span>` : "";
+  const rows = b.holdings
+    .map(
+      (h) => `<tr>
+        <td class="nm-cell"><button type="button" class="story-link" data-code="${esc(h.code)}">${esc(h.name)}</button></td>
+        <td class="num">${won(h.qty)}주</td>
+        <td class="num">${won(h.avgPrice)}</td>
+        <td class="num">${won(h.price)}</td>
+        <td class="num">${won(h.evaluation)}</td>
+        <td class="num ${dir(h.profit)}">${signWon(h.profit)}</td>
+        <td class="num ${dir(h.profitRate)}">${pct(h.profitRate)}</td>
+      </tr>`
+    )
+    .join("");
+  $("#broker").innerHTML = `
+    <div class="broker-head"><h2>내 키움 계좌 ${tag}</h2><span class="sub">조회 전용 · ${timeLabel(new Date(b.updatedAt))} 기준 · 본인 계정에서만 보여요</span></div>
+    <div class="stats broker-stats">
+      ${statBox("추정예탁자산", `${won(sm.estimatedAsset)}원`)}
+      ${statBox("총평가금액", `${won(sm.evaluation)}원`)}
+      ${statBox("총매입금액", `${won(sm.purchase)}원`)}
+      ${statBox("총평가손익", signWon(sm.profit), dir(sm.profit))}
+      ${statBox("총수익률", pct(sm.profitRate), dir(sm.profitRate))}
+      ${statBox("보유 종목", `${b.holdings.length}개`)}
+    </div>
+    ${
+      b.holdings.length
+        ? `<div class="table-wrap"><table class="flow-table broker-table"><thead><tr><th>종목</th><th>보유</th><th>매입가</th><th>현재가</th><th>평가금액</th><th>평가손익</th><th>수익률</th></tr></thead><tbody>${rows}</tbody></table></div>`
+        : `<p class="sub">보유 종목이 없어요.</p>`
+    }`;
+}
+
+$("#broker").addEventListener("click", (e) => {
+  if (e.target.closest("[data-broker-retry]")) return loadBroker();
+  const c = e.target.closest("[data-code]");
+  if (c) openDetail(c.dataset.code);
+});
+
 async function loadWatch() {
   if (watchLoaded) return;
   const box = $("#watch");
@@ -1857,3 +1929,4 @@ showView(location.hash.slice(1) || "krlive");
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
 }
+

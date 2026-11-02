@@ -60,6 +60,28 @@ function check({ data, error }) {
   return data;
 }
 
+// ---------- 키움 계좌 (중계 서버) ----------
+// 고정 IP 서버에서 돌아가는 kiwoom-relay 주소. 비어 있으면 계좌 칸을 아예 보여주지 않아요.
+// 계좌 주인 확인은 중계 서버가 로그인 토큰으로 직접 하므로, 주소가 알려져도 다른 사람은 볼 수 없어요.
+const KIWOOM_RELAY_URL = "";
+const relayUrl = () => {
+  try {
+    return localStorage.getItem("kimga-relay-url") || KIWOOM_RELAY_URL; // 시험용으로 주소를 바꿀 때만
+  } catch {
+    return KIWOOM_RELAY_URL;
+  }
+};
+export const hasBroker = () => !!relayUrl();
+
+// 결과: { ok: true, data } / { ok: false, status, error } - 403은 "계좌 주인이 아님"
+export async function getBrokerBalance() {
+  const sb = await getClient();
+  const { data } = await sb.auth.getSession();
+  const res = await fetch(`${relayUrl()}/balance`, { headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` } });
+  const body = await res.json().catch(() => ({}));
+  return res.ok ? { ok: true, data: body } : { ok: false, status: res.status, error: body.error || `HTTP ${res.status}` };
+}
+
 // ---------- 관심 종목 ----------
 
 export async function listWatch() {

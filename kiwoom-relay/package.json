@@ -1,0 +1,8 @@
+{
+  "name": "kimga-kiwoom-relay",
+  "private": true,
+  "type": "module",
+  "description": "김가네 주식 - 키움 REST API 중계 서버 (계좌 잔고 조회)",
+  "engines": { "node": ">=18" },
+  "scripts": { "start": "node server.js" }
+}
