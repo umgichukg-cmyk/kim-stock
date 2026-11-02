@@ -63,7 +63,7 @@ function check({ data, error }) {
 // ---------- 키움 계좌 (중계 서버) ----------
 // 고정 IP 서버에서 돌아가는 kiwoom-relay 주소. 비어 있으면 계좌 칸을 아예 보여주지 않아요.
 // 계좌 주인 확인은 중계 서버가 로그인 토큰으로 직접 하므로, 주소가 알려져도 다른 사람은 볼 수 없어요.
-const KIWOOM_RELAY_URL = "";
+const KIWOOM_RELAY_URL = "https://kimga-stock.duckdns.org";
 const relayUrl = () => {
   try {
     return localStorage.getItem("kimga-relay-url") || KIWOOM_RELAY_URL; // 시험용으로 주소를 바꿀 때만
