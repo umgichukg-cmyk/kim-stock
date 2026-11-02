@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 900" width="1520" height="1800" font-family="'Malgun Gothic','Noto Sans KR',sans-serif" font-size="13">
+  <!-- 김가네 주식 시스템 구성도 (한 장짜리). PNG는 docs/architecture.png -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#8c959f"/>
+    </marker>
+    <style>
+      .box { fill: #ffffff; stroke: #8c959f; stroke-width: 1.25; }
+      .main { fill: #e8f0fe; stroke: #2f6feb; stroke-width: 2; }
+      .zone { fill: #f6f8fa; stroke: #8c959f; stroke-width: 1; stroke-dasharray: 4 3; }
+      .line { fill: none; stroke: #8c959f; stroke-width: 1.25; }
+      .name { font-weight: 700; fill: #1f2328; }
+      .text { font-size: 11.5px; fill: #57606a; }
+      .ink { font-size: 11.5px; fill: #1f2328; }
+      .title { font-size: 17px; font-weight: 700; fill: #1f2328; }
+      .head { font-size: 13px; font-weight: 700; fill: #1f2328; }
+    </style>
+  </defs>
+  <rect width="760" height="900" fill="#ffffff"/>
+
+  <text class="title" x="24" y="34">김가네 주식 시스템 구성도</text>
+  <text class="text" x="24" y="54">가족 앱은 Vercel 한 곳에서 돌고, 키움 계좌 조회만 시드니 중계 서버를 거쳐요 · 2026년 11월 기준</text>
+
+  <!-- 운영 장소 -->
+  <rect class="zone" x="24" y="160" width="430" height="152" rx="10"/>
+  <text class="name" x="438" y="182" text-anchor="end">Vercel · 무료</text>
+  <text class="text" x="438" y="200" text-anchor="end">kim-stock-kimga · kim-stock-liart .vercel.app</text>
+
+  <rect class="zone" x="24" y="480" width="430" height="136" rx="10"/>
+  <text class="name" x="438" y="502" text-anchor="end">GitHub · kim-stock 저장소</text>
+  <text class="text" x="438" y="518" text-anchor="end">main 운영 · rewrite/v2 작업 · data 결과</text>
+
+  <rect class="zone" x="480" y="300" width="256" height="212" rx="10"/>
+  <text class="name" x="496" y="322">AWS Lightsail · 시드니</text>
+  <text class="text" x="496" y="340">고정 IP 32.236.125.161 · 월 약 5달러</text>
+
+  <!-- 연결선 -->
+  <g class="line">
+    <path d="M135 132V212" marker-end="url(#arrow)"/>
+    <path d="M340 96H608V160" marker-end="url(#arrow)"/>
+    <path d="M340 116H466V380H496" marker-end="url(#arrow)"/>
+    <path d="M230 254H248" marker-end="url(#arrow)"/>
+    <path d="M300 296V340H124V372" marker-end="url(#arrow)"/>
+    <path d="M380 296V372" marker-end="url(#arrow)"/>
+    <path d="M438 270H446V564H438" marker-end="url(#arrow)"/>
+    <path d="M130 528V444" marker-end="url(#arrow)"/>
+    <path d="M230 564H248" marker-end="url(#arrow)"/>
+    <path d="M608 408V424" marker-end="url(#arrow)"/>
+    <path d="M608 496V560" marker-end="url(#arrow)"/>
+    <path d="M720 460H728V252" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  </g>
+  <text class="text" x="350" y="88">로그인 · 관심 종목 · 메모</text>
+  <text class="text" x="348" y="134">계좌 잔고 요청</text>
+  <text class="text" x="212" y="332" text-anchor="middle">시세 받기</text>
+  <text class="text" x="140" y="468">전체 종목 수집</text>
+  <text class="text" x="440" y="466" text-anchor="end">결과 읽기</text>
+  <text class="text" x="616" y="536">등록된 IP에서만 호출</text>
+  <text class="text" x="720" y="282" text-anchor="end">토큰 주인 확인</text>
+
+  <!-- 상자 -->
+  <rect class="box" x="40" y="72" width="300" height="60" rx="8"/>
+  <text class="name" x="56" y="96">가족 4명</text>
+  <text class="text" x="56" y="116">크롬 · 휴대폰 홈 화면 앱(PWA)</text>
+
+  <rect class="box" x="40" y="212" width="190" height="84" rx="8"/>
+  <text class="name" x="56" y="236">화면 (정적 파일)</text>
+  <text class="text" x="56" y="256">탭 9개 · 종목 상세 · 차트</text>
+  <text class="text" x="56" y="274">index.html · app.js</text>
+
+  <rect class="box" x="248" y="212" width="190" height="84" rx="8"/>
+  <text class="name" x="264" y="236">서버 함수 1개</text>
+  <text class="text" x="264" y="256">api/[route].js</text>
+  <text class="text" x="264" y="274">→ _routes 14개 API</text>
+
+  <rect class="box" x="480" y="160" width="256" height="92" rx="8"/>
+  <text class="name" x="496" y="184">Supabase · 로그인·DB</text>
+  <text class="text" x="496" y="204">가족 계정 로그인 (새 가입 막음)</text>
+  <text class="text" x="496" y="220">watchlist · memos 테이블</text>
+  <text class="text" x="496" y="236">보안 규칙(RLS): 본인 것만</text>
+
+  <rect class="box" x="24" y="372" width="200" height="72" rx="8"/>
+  <text class="name" x="40" y="396">네이버 증권</text>
+  <text class="text" x="40" y="414">한국 시세·수급·재무</text>
+  <text class="text" x="40" y="430">테마·뉴스·공모주</text>
+
+  <rect class="box" x="240" y="372" width="200" height="72" rx="8"/>
+  <text class="name" x="256" y="396">Yahoo Finance</text>
+  <text class="text" x="256" y="414">미국 지수·환율·비트코인</text>
+  <text class="text" x="256" y="430">유가·선물 · 키 필요 없음</text>
+
+  <rect class="box" x="40" y="528" width="190" height="72" rx="8"/>
+  <text class="name" x="56" y="552">GitHub Actions</text>
+  <text class="text" x="56" y="570">평일 19:00 scan-market.js</text>
+  <text class="text" x="56" y="586">전체 종목 점수 계산</text>
+
+  <rect class="box" x="248" y="528" width="190" height="72" rx="8"/>
+  <text class="name" x="264" y="552">data 브랜치</text>
+  <text class="text" x="264" y="570">top30 · 브리핑 · 테마</text>
+  <text class="text" x="264" y="586">연속일수 기록 (JSON)</text>
+
+  <rect class="box" x="496" y="352" width="224" height="56" rx="8"/>
+  <text class="name" x="512" y="374">Caddy · HTTPS</text>
+  <text class="text" x="512" y="394">kimga-stock.duckdns.org</text>
+
+  <rect class="main" x="496" y="424" width="224" height="72" rx="8"/>
+  <text class="name" x="512" y="448">중계 서버 server.js</text>
+  <text class="ink" x="512" y="466">토큰 → 계좌 주인 확인</text>
+  <text class="ink" x="512" y="482">잔고 조회만 · 주문 없음</text>
+
+  <rect class="box" x="480" y="560" width="256" height="56" rx="8"/>
+  <text class="name" x="496" y="582">키움 REST API</text>
+  <text class="text" x="496" y="602">토큰 au10001 · 잔고 kt00018</text>
+
+  <!-- 아래 요약 3칸 -->
+  <line x1="24" y1="644" x2="736" y2="644" stroke="#d0d7de"/>
+
+  <rect class="box" x="24" y="660" width="224" height="176" rx="8"/>
+  <text class="head" x="40" y="684">탭 9개 · 갱신 주기</text>
+  <text class="ink" x="40" y="708">장중 흐름 (첫 화면)</text>
+  <text class="text" x="40" y="724">장중 1분마다 · 친구 말투 브리핑</text>
+  <text class="ink" x="40" y="748">미국 테마 · 미국 시장 브리핑</text>
+  <text class="text" x="40" y="764">미국장 마감 뒤 (한국 06:00쯤)</text>
+  <text class="ink" x="40" y="788">상위 30 · 한국 브리핑 · 테마 · 상한가</text>
+  <text class="text" x="40" y="804">평일 19:00~19:30 자동 계산</text>
+  <text class="text" x="40" y="824">공모주 30분 · 관심 종목 열 때마다</text>
+
+  <rect class="box" x="268" y="660" width="224" height="176" rx="8"/>
+  <text class="head" x="284" y="684">보안</text>
+  <text class="ink" x="284" y="708">키움 키</text>
+  <text class="text" x="284" y="724">중계 서버 설정 파일에만 (권한 600)</text>
+  <text class="ink" x="284" y="748">관심 종목 · 메모</text>
+  <text class="text" x="284" y="764">보안 규칙(RLS)으로 본인 것만</text>
+  <text class="ink" x="284" y="788">내 키움 계좌</text>
+  <text class="text" x="284" y="804">계좌 주인 이메일만 · 조회만</text>
+  <text class="text" x="284" y="824">허용 사이트: 운영 주소 2개</text>
+
+  <rect class="box" x="512" y="660" width="224" height="176" rx="8"/>
+  <text class="head" x="528" y="684">비용 (월)</text>
+  <text class="ink" x="528" y="708">Vercel · GitHub · Supabase</text>
+  <text class="text" x="528" y="724">DuckDNS 포함 모두 0원</text>
+  <text class="ink" x="528" y="748">AWS Lightsail 약 5달러</text>
+  <text class="text" x="528" y="764">무료 크레딧 100달러에서 차감</text>
+  <text class="ink" x="528" y="788">배포</text>
+  <text class="text" x="528" y="804">rewrite/v2 → 미리보기 확인</text>
+  <text class="text" x="528" y="824">→ main 합치면 자동 운영 배포</text>
+
+  <text class="text" x="24" y="868">점선 상자 = 운영 장소 · 화살표 = 요청 방향 · 점선 화살표 = 확인 요청 · 파란 상자 = 키움 키가 있는 유일한 곳</text>
+</svg>
