@@ -593,6 +593,22 @@ async function loadKrLive({ quiet = false } = {}) {
 }
 
 // 친구 말투 브리핑 (서버가 숫자로만 만든 문장)
+// 문장 속 [[종류|번호|이름]]을 누를 수 있는 이름으로: s 종목 상세, i 업종·t 테마 대표 종목, x 지수 상세 차트
+const STORY_LINK_TITLE = { s: "종목 상세", i: "업종 대표 종목", t: "테마 대표 종목", x: "상세 차트" };
+const storyLinks = (html) =>
+  html.replace(/\[\[([sitx])\|([^|\]]+)\|([^\]]+)\]\]/g, (m, kind, id, name) => `<button type="button" class="story-link" data-story="${kind}" data-id="${id}" title="누르면 ${STORY_LINK_TITLE[kind]}">${name}</button>`);
+
+function openStoryLink(el) {
+  const { story: kind, id } = el.dataset;
+  if (kind === "s") return openDetail(id);
+  if (kind === "x") return openMarket(id);
+  // 업종·테마는 장중 흐름 목록에 있는 정보(등락률·종목 수)로 대표 종목 창을 엶
+  const list = kind === "i" ? liveData?.industries : liveData?.themes;
+  const g = [...(list?.top ?? []), ...(list?.bottom ?? [])].find((x) => String(x.no) === id);
+  if (!g) return;
+  openLiveGroup({ dataset: { liveGroup: kind === "i" ? "industry" : "theme", no: String(g.no), name: g.name, pct: String(g.changePct), count: String(g.count), up: String(g.up), down: String(g.down) } });
+}
+
 function renderStory(story) {
   const box = $("#live-story");
   if (!story?.paragraphs?.length) {
@@ -602,7 +618,7 @@ function renderStory(story) {
   box.hidden = false;
   box.innerHTML = `
     <p class="story-head">${esc(story.headline)}</p>
-    ${story.paragraphs.map((p) => `<p class="story-p"><b>${esc(p.title)}</b>${esc(p.text)}</p>`).join("")}
+    ${story.paragraphs.map((p) => `<p class="story-p"><b>${esc(p.title)}</b>${storyLinks(esc(p.text))}</p>`).join("")}
     ${
       story.news?.length
         ? `<div class="story-p"><b>주요 뉴스</b>이런 소식도 있어.<ul class="story-news">${story.news
@@ -647,6 +663,8 @@ async function openLiveGroup(el) {
 }
 
 $("#view-krlive").addEventListener("click", (e) => {
+  const storyLink = e.target.closest("[data-story]");
+  if (storyLink) return openStoryLink(storyLink);
   const chartCard = e.target.closest("[data-live-chart]");
   if (chartCard) return openMarket(chartCard.dataset.liveChart);
   const g = e.target.closest("[data-live-group]");

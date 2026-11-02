@@ -25,6 +25,13 @@ function endsWithRieul(word) {
   return ["1", "7", "8"].includes(ch);
 }
 
+// ---------- 누를 수 있는 이름 ----------
+// 화면이 버튼으로 바꿔요: [[종류|번호|이름]] - s 종목 상세, i 업종, t 테마, x 지수 상세 차트
+const link = (kind, id, name) => `[[${kind}|${id}|${String(name).replace(/[|]]/g, " ")}]]`;
+// 이름 링크 + 조사: linkJ("s", "005930", "삼성전자", "이/가") → [[s|005930|삼성전자]]가
+const linkJ = (kind, id, name, pair) => `${link(kind, id, name)}${josa(name, pair).slice(String(name).length)}`;
+const INDEX_CHART = { KOSPI: "kospi", KOSDAQ: "kosdaq", KPI200: "kpi200" };
+
 // ---------- 숫자 ----------
 const n0 = (v) => Math.round(v).toLocaleString("ko-KR");
 const n2 = (v) => v.toLocaleString("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -64,9 +71,9 @@ function indexLine(x, live) {
     }
     const pos = hi[1] === lo[1] ? 0.5 : (x.price - lo[1]) / (hi[1] - lo[1]);
     const where = pos >= 0.85 ? "고점 근처" : pos <= 0.15 ? "저점 근처" : pos >= 0.5 ? "고점에서 조금 내려온 자리" : "저점에서 조금 올라온 자리";
-    return `${josa(x.name, "은/는")} ${start}.${path} ${result}. ${live ? `하루 범위로 보면 ${where}야.` : `하루 범위로 보면 ${where}에서 끝났어.`}`;
+    return `${linkJ("x", INDEX_CHART[x.symbol], x.name, "은/는")} ${start}.${path} ${result}. ${live ? `하루 범위로 보면 ${where}야.` : `하루 범위로 보면 ${where}에서 끝났어.`}`;
   }
-  return `${josa(x.name, "은/는")} ${start}. ${result}.`;
+  return `${linkJ("x", INDEX_CHART[x.symbol], x.name, "은/는")} ${start}. ${result}.`;
 }
 
 function indexPara(indices, live) {
@@ -134,20 +141,20 @@ function moodPara(breadth, indices, limits, live) {
 
 function groupPara(industries, themes, live) {
   const parts = [];
-  const name = (g) => `${g.name}(${pct(g.changePct)})`;
+  const name = (k, g) => `${link(k, g.no, g.name)}(${pct(g.changePct)})`;
   // 조사는 괄호 앞 이름 기준: 조선(+7.90%)이
-  const nameJ = (g, pair) => `${name(g)}${josa(g.name, pair).slice(g.name.length)}`;
+  const nameJ = (k, g, pair) => `${name(k, g)}${josa(g.name, pair).slice(g.name.length)}`;
   if (industries?.top?.length) {
     const [a, b] = industries.top;
-    parts.push(`업종으로는 ${nameJ(a, "이/가")} 제일 세고${b ? `, 그다음이 ${name(b)}야` : "야"}.`);
+    parts.push(`업종으로는 ${nameJ("i", a, "이/가")} 제일 세고${b ? `, 그다음이 ${name("i", b)}야` : "야"}.`);
     const w = industries.bottom?.[0];
-    if (w && w.changePct < 0) parts.push(`반대로 ${nameJ(w, "은/는")} 제일 약해.`);
+    if (w && w.changePct < 0) parts.push(`반대로 ${nameJ("i", w, "은/는")} 제일 약해.`);
   }
   if (themes?.top?.length) {
     const top = themes.top.slice(0, 3).filter((t) => t.changePct > 0);
-    if (top.length) parts.push(`테마는 ${top.map(name).join(", ")} 쪽으로 돈이 몰리고 있어.`);
+    if (top.length) parts.push(`테마는 ${top.map((t) => name("t", t)).join(", ")} 쪽으로 돈이 몰리고 있어.`);
     const w = themes.bottom?.[0];
-    if (w && w.changePct < 0) parts.push(`${nameJ(w, "은/는")} 많이 빠지는 테마야.`);
+    if (w && w.changePct < 0) parts.push(`${nameJ("t", w, "은/는")} 많이 빠지는 테마야.`);
   }
   if (!parts.length) return null;
   let text = parts.join(" ");
@@ -160,17 +167,19 @@ function stockPara(movers, limits) {
   const v = movers?.value ?? [];
   if (v.length >= 2) {
     const [a, b] = v;
-    parts.push(`거래대금은 ${josa(a.name, "이/가")} ${josa(eok(a.value), "으로/로")} 제일 많고(${pct(a.changePct)}), ${josa(b.name, "이/가")} ${josa(eok(b.value), "으로/로")} 그다음이야(${pct(b.changePct)}).`);
+    parts.push(`거래대금은 ${linkJ("s", a.code, a.name, "이/가")} ${josa(eok(a.value), "으로/로")} 제일 많고(${pct(a.changePct)}), ${linkJ("s", b.code, b.name, "이/가")} ${josa(eok(b.value), "으로/로")} 그다음이야(${pct(b.changePct)}).`);
   }
   const up = limits?.upper ?? [];
   if (up.length) {
-    const names = up.slice(0, 4).map((s) => s.name).join(", ");
-    parts.push(up.length > 4 ? `상한가는 ${names} 등 ${up.length}종목이야.` : `상한가는 ${josa(names, "이야/야")}.`);
+    const shown = up.slice(0, 4);
+    const names = shown.map((s) => link("s", s.code, s.name)).join(", ");
+    const last = shown.at(-1).name;
+    parts.push(up.length > 4 ? `상한가는 ${names} 등 ${up.length}종목이야.` : `상한가는 ${names}${josa(last, "이야/야").slice(last.length)}.`);
   }
   const g = (movers?.gainers ?? []).find((s) => s.limit !== "upper");
-  if (g) parts.push(`상한가 말고 제일 많이 오른 건 ${g.name}(${pct(g.changePct)})야.`);
+  if (g) parts.push(`상한가 말고 제일 많이 오른 건 ${link("s", g.code, g.name)}(${pct(g.changePct)})야.`);
   const l = (movers?.losers ?? [])[0];
-  if (l) parts.push(`${josa(l.name, "은/는")} ${pct(l.changePct)}로 많이 빠졌어.`);
+  if (l) parts.push(`${linkJ("s", l.code, l.name, "은/는")} ${pct(l.changePct)}로 많이 빠졌어.`);
   return parts.length ? { title: "눈에 띄는 종목", text: parts.join(" ") } : null;
 }
 
@@ -185,7 +194,7 @@ export function buildStory(data, news = []) {
   ].filter(Boolean);
   if (!paras.length) return null;
   return {
-    headline: live ? "지금 시장, 이렇게 흘러가고 있어" : "오늘 시장, 이렇게 끝났어",
+    headline: live ? "김가들아~ 지금 시장 이렇게 흘러가고 있어" : "김가들아~ 오늘 시장 이렇게 끝났어",
     paragraphs: paras,
     news: news.slice(0, 2).map(({ title, press, url, time }) => ({ title, press, url, time })),
   };
