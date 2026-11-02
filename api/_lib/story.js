@@ -196,6 +196,6 @@ export function buildStory(data, news = []) {
   return {
     headline: live ? "김가들아~ 지금 시장 이렇게 흘러가고 있어" : "김가들아~ 오늘 시장 이렇게 끝났어",
     paragraphs: paras,
-    news: news.slice(0, 2).map(({ title, press, url, time }) => ({ title, press, url, time })),
+    news: news.slice(0, 5).map(({ title, press, url, time }) => ({ title, press, url, time })),
   };
 }

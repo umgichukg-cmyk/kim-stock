@@ -595,6 +595,11 @@ async function loadKrLive({ quiet = false } = {}) {
 // 친구 말투 브리핑 (서버가 숫자로만 만든 문장)
 // 문장 속 [[종류|번호|이름]]을 누를 수 있는 이름으로: s 종목 상세, i 업종·t 테마 대표 종목, x 지수 상세 차트
 const STORY_LINK_TITLE = { s: "종목 상세", i: "업종 대표 종목", t: "테마 대표 종목", x: "상세 차트" };
+// 상승은 빨강, 하락은 파랑: 부호가 붙은 등락률(+1.35%, -5.37%)과 "올랐어/내렸어"
+const storyColors = (html) =>
+  html
+    .replace(/([+-])(\d[\d,]*(?:\.\d+)?%)/g, (m, sign) => `<span class="${sign === "+" ? "up" : "down"}">${m}</span>`)
+    .replace(/(올랐어|내렸어)/g, (m) => `<span class="${m === "올랐어" ? "up" : "down"}">${m}</span>`);
 const storyLinks = (html) =>
   html.replace(/\[\[([sitx])\|([^|\]]+)\|([^\]]+)\]\]/g, (m, kind, id, name) => `<button type="button" class="story-link" data-story="${kind}" data-id="${id}" title="누르면 ${STORY_LINK_TITLE[kind]}">${name}</button>`);
 
@@ -618,7 +623,7 @@ function renderStory(story) {
   box.hidden = false;
   box.innerHTML = `
     <p class="story-head">${esc(story.headline)}</p>
-    ${story.paragraphs.map((p) => `<p class="story-p"><b>${esc(p.title)}</b>${storyLinks(esc(p.text))}</p>`).join("")}
+    ${story.paragraphs.map((p) => `<p class="story-p"><b>${esc(p.title)}</b>${storyColors(storyLinks(esc(p.text)))}</p>`).join("")}
     ${
       story.news?.length
         ? `<div class="story-p"><b>주요 뉴스</b>이런 소식도 있어.<ul class="story-news">${story.news

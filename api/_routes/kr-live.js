@@ -44,7 +44,7 @@ async function overview() {
     ),
     getIndustries().catch(() => []),
     getThemes().catch(() => []),
-    getMainNews(2).catch(() => []),
+    getMainNews(5).catch(() => []),
   ]);
 
   // rankings 순서: KOSPI up, down, priceTop, KOSDAQ up, down, priceTop
@@ -88,7 +88,7 @@ async function overview() {
     industries: groups(industries, 7),
     themes: groups(themes, 10),
   };
-  // 친구 말투 브리핑: 위 숫자로만 만든 문장 + 주요 뉴스 2개
+  // 친구 말투 브리핑: 위 숫자로만 만든 문장 + 주요 뉴스 5개
   result.story = buildStory(result, news);
   return result;
 }
