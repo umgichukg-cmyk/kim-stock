@@ -392,3 +392,13 @@ button.live-index:hover { border-color: var(--accent); transform: translateY(-2p
 @media (max-width: 860px) {
   .live-index-grid { grid-template-columns: 1fr; }
 }
+/* 장중 흐름 친구 말투 브리핑 */
+.story { margin: 0 0 16px; padding: 14px 16px; border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 12px; background: var(--surface-2); line-height: 1.7; font-size: 14px; }
+.story-head { margin: 0 0 8px; font-size: 16px; font-weight: 800; }
+.story-p { margin: 0 0 8px; }
+.story-p > b { display: inline-block; margin-right: 8px; padding: 0 8px; border-radius: 6px; background: var(--surface); color: var(--accent); font-size: 12px; line-height: 22px; vertical-align: 1px; }
+.story-news { margin: 4px 0 0; padding-left: 18px; }
+.story-news a { color: var(--text); font-weight: 600; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+.story-news a:hover { color: var(--accent); }
+.story-news span { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.story-foot { margin: 6px 0 0; color: var(--muted); font-size: 11.5px; }

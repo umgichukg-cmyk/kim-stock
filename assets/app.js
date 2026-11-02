@@ -535,6 +535,7 @@ async function loadKrLive({ quiet = false } = {}) {
     badge.textContent = status;
     badge.className = `live-badge${b.status === "OPEN" ? " on" : ""}`;
 
+    renderStory(b.story);
     $("#live-indices").innerHTML = b.indices.map(liveIndexCard).join("");
 
     const cell = (v) => (v == null ? "<td>-</td>" : `<td class="num ${dir(v)}">${v > 0 ? "+" : ""}${v.toLocaleString("ko-KR")}</td>`);
@@ -589,6 +590,27 @@ async function loadKrLive({ quiet = false } = {}) {
   } finally {
     liveLoading = false;
   }
+}
+
+// 친구 말투 브리핑 (서버가 숫자로만 만든 문장)
+function renderStory(story) {
+  const box = $("#live-story");
+  if (!story?.paragraphs?.length) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  box.innerHTML = `
+    <p class="story-head">${esc(story.headline)}</p>
+    ${story.paragraphs.map((p) => `<p class="story-p"><b>${esc(p.title)}</b>${esc(p.text)}</p>`).join("")}
+    ${
+      story.news?.length
+        ? `<div class="story-p"><b>주요 뉴스</b>이런 소식도 있어.<ul class="story-news">${story.news
+            .map((n) => `<li><a href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">${esc(n.title)}</a> <span>${esc(n.press)} · ${newsTime(n.time)}</span></li>`)
+            .join("")}</ul></div>`
+        : ""
+    }
+    <p class="story-foot">실시간 숫자로 자동으로 쓴 브리핑이에요. 매수·매도 권유가 아니에요.</p>`;
 }
 
 // 업종·테마를 누르면 대표 종목의 지금 시세

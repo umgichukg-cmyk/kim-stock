@@ -9,7 +9,9 @@ import {
   getIndustries,
   getThemes,
   getGroupLive,
+  getMainNews,
 } from "../_lib/naver.js";
+import { buildStory } from "../_lib/story.js";
 import { sendJson, sendError } from "../_lib/http.js";
 
 const INDICES = [
@@ -35,13 +37,14 @@ async function overview() {
     })
   );
 
-  const [investors, rankings, industries, themes] = await Promise.all([
+  const [investors, rankings, industries, themes, news] = await Promise.all([
     Promise.all(MARKETS.map((m) => getIndexInvestors(m).catch(() => null))),
     Promise.all(
       MARKETS.flatMap((m) => ["up", "down", "priceTop"].map((k) => getRanking(k, m).catch(() => ({ total: 0, stocks: [] }))))
     ),
     getIndustries().catch(() => []),
     getThemes().catch(() => []),
+    getMainNews(2).catch(() => []),
   ]);
 
   // rankings 순서: KOSPI up, down, priceTop, KOSDAQ up, down, priceTop
@@ -73,7 +76,7 @@ async function overview() {
   const groups = (all, n) => (all.length ? { count: all.length, top: all.slice(0, n), bottom: all.slice(-n).reverse() } : null);
 
   const status = indices.find((x) => x.ok)?.status ?? null;
-  return {
+  const result = {
     updatedAt: new Date().toISOString(),
     status,
     tradedAt: indices.find((x) => x.ok)?.tradedAt ?? null,
@@ -85,6 +88,9 @@ async function overview() {
     industries: groups(industries, 7),
     themes: groups(themes, 10),
   };
+  // 친구 말투 브리핑: 위 숫자로만 만든 문장 + 주요 뉴스 2개
+  result.story = buildStory(result, news);
+  return result;
 }
 
 export default async function handler(req, res) {
