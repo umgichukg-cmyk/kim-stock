@@ -2,6 +2,7 @@
 // Vercel 무료 요금제는 배포당 서버 함수가 12개까지라, 실제 처리는 _routes/ 아래 파일로 나눠 줍니다.
 // /api/stock?code=005930 → _routes/stock.js (주소의 이름은 Vercel이 req.query.route로 넘겨줌)
 import briefing from "./_routes/briefing.js";
+import candles from "./_routes/candles.js";
 import chart from "./_routes/chart.js";
 import ipo from "./_routes/ipo.js";
 import krBriefing from "./_routes/kr-briefing.js";
@@ -18,6 +19,7 @@ import { sendJson } from "./_lib/http.js";
 
 const ROUTES = {
   briefing,
+  candles,
   chart,
   ipo,
   "kr-briefing": krBriefing,

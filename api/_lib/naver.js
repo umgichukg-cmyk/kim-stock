@@ -129,6 +129,45 @@ export async function getIndexMinuteCandles(index, fromYmd, bucket = 1) {
   return out;
 }
 
+// 종목 분봉(최근 days거래일 1분봉)·주봉(약 10년)·월봉(2000년부터) 캔들 (오래된 순)
+// time은 분봉이면 한국 시각을 UTC처럼 쓴 초, 주봉·월봉이면 "YYYY-MM-DD" (차트 라이브러리 형식)
+export async function getStockCandles(code, period, days = 5) {
+  const today = new Date(Date.now() + 9 * 3600_000);
+  const ago = (n) => ymd(new Date(today.getTime() - n * 86400_000));
+  const from = period === "minute" ? `${ago(days + 9)}0000` : period === "week" ? `${ago(3660)}0000` : "200001010000";
+  const rows = await fetchJson(
+    `https://api.stock.naver.com/chart/domestic/item/${code}/${period}?startDateTime=${from}&endDateTime=${ymd(today)}2359`,
+    { headers: REFERER }
+  );
+  if (!Array.isArray(rows)) return [];
+  if (period !== "minute") {
+    return rows
+      .filter((r) => r.closePrice > 0)
+      .map((r) => {
+        const d = String(r.localDate);
+        return { time: `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`, open: r.openPrice, high: r.highPrice, low: r.lowPrice, close: r.closePrice, volume: r.accumulatedTradingVolume ?? 0 };
+      });
+  }
+  // 정규장(09:00~15:30)만: 네이버 분봉에는 대체거래소(넥스트레이드) 애프터마켓 거래가 저녁 8시까지 섞여 있음
+  const regular = (s) => s.slice(8, 12) >= "0900" && s.slice(8, 12) <= "1530";
+  const out = rows
+    .filter((r) => r.currentPrice > 0 && regular(String(r.localDateTime)))
+    .map((r) => {
+      const s = String(r.localDateTime);
+      return {
+        date: s.slice(0, 8),
+        time: Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(8, 10), +s.slice(10, 12)) / 1000,
+        open: r.openPrice,
+        high: r.highPrice,
+        low: r.lowPrice,
+        close: r.currentPrice,
+        volume: r.accumulatedTradingVolume ?? 0,
+      };
+    });
+  const dates = [...new Set(out.map((c) => c.date))].slice(-days);
+  return out.filter((c) => dates.includes(c.date));
+}
+
 // 국내 지수 일봉(day)·주봉(week) 캔들 (오래된 순). time은 그날 0시를 UTC처럼 쓴 초
 export async function getIndexCandles(index, period, fromYmd) {
   const rows = await fetchJson(

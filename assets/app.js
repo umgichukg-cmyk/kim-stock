@@ -1106,7 +1106,16 @@ function renderFlows(all, days) {
     ${flows.length ? `<div class="section-title" style="margin-top:14px"><span>기간 누적 순매수</span><span class="sub">${range}</span></div>${flowTotals(flows)}<p class="sub avg-note">평단은 순매수(순매도)한 날의 수량에 그날 대표가격 (고가 + 저가 + 종가) ÷ 3을 곱해 낸 추정치예요. 투자자별 실제 체결가는 공개되지 않아 차이가 있을 수 있어요.</p>` : ""}`;
 }
 
-function drawCandles(el, candles, stats) {
+// 종목 상세 차트 종류: 이동평균은 봉 개수 기준, options는 분봉이면 묶는 단위(분), 나머지는 보이는 봉 개수
+const CHART_PERIODS = {
+  minute: { label: "분봉", note: "최근 5거래일 정규장", ma: [5, 20, 60], maUnit: "이평", options: [["1", "1분"], ["5", "5분"], ["15", "15분"], ["60", "60분"]], default: "5" },
+  day: { label: "일봉", ma: [5, 20, 60], maUnit: "일선", options: [["22", "1개월"], ["66", "3개월"], ["90", "90일"], ["999", "전체"]], default: "90" },
+  week: { label: "주봉", note: "약 10년", ma: [5, 20, 60], maUnit: "주선", options: [["52", "1년"], ["156", "3년"], ["999", "전체"]], default: "156" },
+  month: { label: "월봉", note: "2000년부터", ma: [5, 20, 60], maUnit: "개월선", options: [["36", "3년"], ["120", "10년"], ["999", "전체"]], default: "120" },
+};
+
+// candles: [{ time, open, high, low, close, volume }] - time은 "YYYY-MM-DD" 또는 (분봉) 초
+function drawCandles(el, candles, { ma: maList = [5, 20, 60], intraday = false, vwap = null } = {}) {
   if (chart) chart.remove();
   chart = null;
   if (!window.LightweightCharts) {
@@ -1119,17 +1128,16 @@ function drawCandles(el, candles, stats) {
     layout: { background: { color: css("--surface") }, textColor: css("--muted"), fontFamily: "Noto Sans KR" },
     grid: { vertLines: { color: css("--border") }, horzLines: { color: css("--border") } },
     rightPriceScale: { borderColor: css("--border") },
-    timeScale: { borderColor: css("--border") },
+    timeScale: { borderColor: css("--border"), timeVisible: intraday, secondsVisible: false },
     // 휠은 상세 창 스크롤에 쓰고, 차트 이동/확대는 드래그·핀치로
     handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
     handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true },
     localization: { priceFormatter: (p) => Math.round(p).toLocaleString("ko-KR") },
   });
-  const time = (d) => `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
   const up = css("--up");
   const down = css("--down");
   const series = chart.addCandlestickSeries({ upColor: up, downColor: down, borderVisible: false, wickUpColor: up, wickDownColor: down });
-  series.setData(candles.map((c) => ({ time: time(c.date), open: c.open, high: c.high, low: c.low, close: c.close })));
+  series.setData(candles.map(({ time, open, high, low, close }) => ({ time, open, high, low, close })));
 
   const ma = (period, color) => {
     const s = chart.addLineSeries({ color, lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
@@ -1137,28 +1145,26 @@ function drawCandles(el, candles, stats) {
     for (let i = period - 1; i < candles.length; i++) {
       let sum = 0;
       for (let k = i - period + 1; k <= i; k++) sum += candles[k].close;
-      data.push({ time: time(candles[i].date), value: sum / period });
+      data.push({ time: candles[i].time, value: sum / period });
     }
     s.setData(data);
   };
-  ma(5, "#f2a01d");
-  ma(20, css("--institution"));
-  ma(60, css("--individual"));
+  const colors = ["#f2a01d", css("--institution"), css("--individual")];
+  maList.forEach((n, i) => ma(n, colors[i]));
 
-  if (stats.vwap20) {
-    series.createPriceLine({ price: stats.vwap20, color: css("--muted"), lineStyle: 2, lineWidth: 1, axisLabelVisible: true, title: "VWAP20" });
+  if (vwap) {
+    series.createPriceLine({ price: vwap, color: css("--muted"), lineStyle: 2, lineWidth: 1, axisLabelVisible: true, title: "VWAP20" });
   }
 
   const vol = chart.addHistogramSeries({ priceScaleId: "vol", priceFormat: { type: "volume" }, lastValueVisible: false, priceLineVisible: false });
   chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
   vol.setData(
     candles.map((c, i) => ({
-      time: time(c.date),
+      time: c.time,
       value: c.volume,
       color: `${c.close >= (candles[i - 1]?.close ?? c.open) ? up : down}66`,
     }))
   );
-  setRange(90, candles.length);
 }
 
 function setRange(days, total) {
@@ -1208,15 +1214,17 @@ async function openDetail(code) {
     </div>
 
     <div class="section-title">
-      <span>일봉 차트</span>
-      <div class="chips" id="range-chips">
-        <button class="chip" data-range="22" aria-selected="false">1개월</button>
-        <button class="chip" data-range="66" aria-selected="false">3개월</button>
-        <button class="chip" data-range="90" aria-selected="true">90일</button>
-        <button class="chip" data-range="999" aria-selected="false">전체</button>
+      <span id="chart-title">일봉 차트</span>
+      <div class="chips" id="period-chips">
+        ${Object.entries(CHART_PERIODS)
+          .map(([k, p]) => `<button class="chip" data-period="${k}" aria-selected="${k === "day"}">${p.label}</button>`)
+          .join("")}
       </div>
     </div>
-    <div class="legend" style="margin-bottom:6px"><span><i style="background:#f2a01d"></i>5일선</span><span><i style="background:var(--institution)"></i>20일선</span><span><i style="background:var(--individual)"></i>60일선</span><span><i style="background:var(--muted)"></i>20일 VWAP</span></div>
+    <div class="chart-sub">
+      <div class="legend" id="chart-legend"></div>
+      <div class="chips" id="range-chips"></div>
+    </div>
     <div class="chart-box" id="candle-chart"></div>
 
     <div class="section-title"><span>관련 뉴스</span><span class="sub">네이버 뉴스 · 누르면 원문이 새 창으로 열려요</span></div>
@@ -1248,15 +1256,103 @@ async function openDetail(code) {
     if (btn) renderFlows(s.flows, Number(btn.dataset.days));
   });
 
-  const candleEl = $("#candle-chart");
-  const total = s.candles.length;
-  drawCandles(candleEl, s.candles, st);
-  $("#range-chips").addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-range]");
-    if (!btn) return;
-    document.querySelectorAll("#range-chips .chip").forEach((c) => c.setAttribute("aria-selected", c === btn));
-    setRange(Number(btn.dataset.range), total);
+  // 차트: 일봉은 이미 받은 것, 분봉·주봉·월봉은 처음 누를 때 받아 둠
+  const view = {
+    code,
+    period: "day",
+    option: CHART_PERIODS.day.default,
+    data: { day: s.candles.map((c) => ({ ...c, time: `${c.date.slice(0, 4)}-${c.date.slice(4, 6)}-${c.date.slice(6, 8)}` })) },
+    vwap: st.vwap20,
+  };
+  showChart(view);
+  $("#period-chips").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-period]");
+    if (!btn || btn.dataset.period === view.period) return;
+    view.period = btn.dataset.period;
+    view.option = CHART_PERIODS[view.period].default;
+    showChart(view);
   });
+  $("#range-chips").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-opt]");
+    if (!btn) return;
+    view.option = btn.dataset.opt;
+    // 분봉은 묶는 단위가 바뀌어 다시 그리고, 나머지는 보이는 범위만 바꿈
+    if (view.period === "minute") showChart(view);
+    else {
+      markChips(view);
+      setRange(Number(view.option), view.data[view.period].length);
+    }
+  });
+}
+
+function markChips(view) {
+  document.querySelectorAll("#period-chips .chip").forEach((c) => c.setAttribute("aria-selected", c.dataset.period === view.period));
+  document.querySelectorAll("#range-chips .chip").forEach((c) => c.setAttribute("aria-selected", c.dataset.opt === view.option));
+}
+
+let chartSeq = 0;
+
+async function showChart(view) {
+  const p = CHART_PERIODS[view.period];
+  const seq = ++chartSeq;
+  $("#chart-title").textContent = `${p.label} 차트${p.note ? ` · ${p.note}` : ""}`;
+  $("#range-chips").innerHTML = p.options.map(([v, l]) => `<button class="chip" data-opt="${v}">${l}</button>`).join("");
+  const colors = ["#f2a01d", "var(--institution)", "var(--individual)"];
+  $("#chart-legend").innerHTML =
+    p.ma.map((n, i) => `<span><i style="background:${colors[i]}"></i>${n}${p.maUnit}</span>`).join("") +
+    (view.period === "day" ? `<span><i style="background:var(--muted)"></i>20일 VWAP</span>` : "");
+  markChips(view);
+  const el = $("#candle-chart");
+  if (!view.data[view.period]) {
+    el.classList.add("loading");
+    try {
+      const r = await getJson(`/api/candles?code=${encodeURIComponent(view.code)}&period=${view.period}`);
+      view.data[view.period] = r.candles;
+    } catch (e) {
+      if (seq !== chartSeq) return;
+      el.classList.remove("loading");
+      if (chart) chart.remove();
+      chart = null;
+      el.innerHTML = `<div class="state">차트를 불러오지 못했어요.<br><small>${esc(e.message)}</small></div>`;
+      return;
+    } finally {
+      if (seq === chartSeq) el.classList.remove("loading");
+    }
+    if (seq !== chartSeq || !$("#detail").open) return; // 그사이 다른 봉을 눌렀거나 창을 닫음
+  }
+  let candles = view.data[view.period];
+  if (view.period === "minute") candles = groupMinutes(candles, Number(view.option));
+  if (!candles.length) {
+    if (chart) chart.remove();
+    chart = null;
+    el.innerHTML = `<div class="state">표시할 봉이 없어요.</div>`;
+    return;
+  }
+  if (!chart) el.innerHTML = ""; // 오류·빈 안내 문구 지우기
+  drawCandles(el, candles, { ma: p.ma, intraday: view.period === "minute", vwap: view.period === "day" ? view.vwap : null });
+  if (view.period === "minute") {
+    // 분봉은 마지막 거래일 하루가 보이게 (이전 날은 드래그해서 보기)
+    const lastDay = candles.at(-1).date;
+    setRange(candles.length - candles.findIndex((c) => c.date === lastDay), candles.length);
+  } else setRange(Number(view.option), candles.length);
+}
+
+// 1분봉을 n분봉으로 묶음 (날짜가 바뀌면 새 봉)
+function groupMinutes(rows, n) {
+  if (n <= 1) return rows;
+  const out = [];
+  for (const r of rows) {
+    const minuteOfDay = Math.floor((r.time % 86400) / 60);
+    const start = r.time - (r.time % 86400) + (minuteOfDay - (minuteOfDay % n)) * 60;
+    const last = out.at(-1);
+    if (last && last.time === start && last.date === r.date) {
+      last.high = Math.max(last.high, r.high);
+      last.low = Math.min(last.low, r.low);
+      last.close = r.close;
+      last.volume += r.volume;
+    } else out.push({ ...r, time: start });
+  }
+  return out;
 }
 
 // ---------- 시장 지표 상세 차트 ----------

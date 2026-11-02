@@ -267,7 +267,10 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .section-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 18px 0 8px; font-weight: 800; }
 .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11.5px; font-weight: 500; color: var(--muted); }
 .legend i { display: inline-block; width: 10px; height: 3px; margin-right: 4px; vertical-align: middle; border-radius: 2px; }
-.chart-box { height: 340px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.chart-box { height: 340px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: opacity 0.15s; }
+.chart-box.loading { opacity: 0.5; }
+.chart-sub { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.chart-sub .legend { margin: 0; }
 .score-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 .stat small { font-size: 11.5px; font-weight: 600; }
 .score-col { padding: 14px; border-radius: 12px; background: var(--surface-2); }
