@@ -1751,3 +1751,8 @@ account
 
 load();
 showView(location.hash.slice(1) || "krlive");
+
+// 홈 화면 앱(PWA): 설치와 오프라인 안내용 서비스 워커 (실패해도 사이트는 그대로 동작)
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+}
