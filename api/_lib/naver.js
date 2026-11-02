@@ -85,7 +85,96 @@ export async function getIndexQuote(index) {
   const j = await fetchJson(`https://m.stock.naver.com/api/index/${index}/basic`, { headers: REFERER });
   const price = toNumber(j.closePrice);
   const change = toNumber(j.compareToPreviousClosePrice);
-  return { price, change, changePct: toNumber(j.fluctuationsRatio), prevClose: price != null && change != null ? price - change : null };
+  return {
+    price,
+    change,
+    changePct: toNumber(j.fluctuationsRatio),
+    prevClose: price != null && change != null ? price - change : null,
+    status: j.marketStatus, // OPEN / CLOSE 등
+    tradedAt: j.localTradedAt,
+  };
+}
+
+// 국내 지수 오늘 1분봉 (장중 흐름 차트용, 오래된 순). time은 "HHmm"
+export async function getIndexMinute(index) {
+  const rows = await fetchJson(`https://api.stock.naver.com/chart/domestic/index/${index}/minute`, { headers: REFERER });
+  return (Array.isArray(rows) ? rows : [])
+    .map((r) => ({ date: String(r.localDateTime).slice(0, 8), time: String(r.localDateTime).slice(8, 12), price: r.currentPrice }))
+    .filter((r) => r.price > 0);
+}
+
+// 국내 지수 분봉 캔들 (fromYmd부터, bucket분 단위로 묶음). time은 Yahoo와 같은 "한국 시각을 UTC처럼 쓴" 초
+export async function getIndexMinuteCandles(index, fromYmd, bucket = 1) {
+  const rows = await fetchJson(
+    `https://api.stock.naver.com/chart/domestic/index/${index}/minute?startDateTime=${fromYmd}0900&endDateTime=${ymd(new Date(Date.now() + 9 * 3600_000))}1600`,
+    { headers: REFERER }
+  );
+  const out = [];
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (!(r.currentPrice > 0)) continue;
+    const s = String(r.localDateTime);
+    const minute = Number(s.slice(8, 10)) * 60 + Number(s.slice(10, 12));
+    const start = minute - (minute % bucket);
+    const time = Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), Math.floor(start / 60), start % 60) / 1000;
+    const last = out.at(-1);
+    if (last?.time === time) {
+      last.high = Math.max(last.high, r.highPrice);
+      last.low = Math.min(last.low, r.lowPrice);
+      last.close = r.currentPrice;
+      last.volume += r.accumulatedTradingVolume ?? 0;
+    } else {
+      out.push({ date: s.slice(0, 8), time, open: r.openPrice, high: r.highPrice, low: r.lowPrice, close: r.currentPrice, volume: r.accumulatedTradingVolume ?? 0 });
+    }
+  }
+  return out;
+}
+
+// 국내 지수 일봉(day)·주봉(week) 캔들 (오래된 순). time은 그날 0시를 UTC처럼 쓴 초
+export async function getIndexCandles(index, period, fromYmd) {
+  const rows = await fetchJson(
+    `https://api.stock.naver.com/chart/domestic/index/${index}/${period}?startDateTime=${fromYmd}0000&endDateTime=${ymd(new Date(Date.now() + 9 * 3600_000))}2359`,
+    { headers: REFERER }
+  );
+  return (Array.isArray(rows) ? rows : [])
+    .filter((r) => r.closePrice > 0)
+    .map((r) => {
+      const d = String(r.localDate);
+      return {
+        time: Date.UTC(+d.slice(0, 4), +d.slice(4, 6) - 1, +d.slice(6, 8)) / 1000,
+        open: r.openPrice,
+        high: r.highPrice,
+        low: r.lowPrice,
+        close: r.closePrice,
+        volume: r.accumulatedTradingVolume ?? 0,
+      };
+    });
+}
+
+// 실시간 시세 목록의 종목 한 줄 (거래대금은 억 원)
+function liveRow(s) {
+  return {
+    code: s.itemCode,
+    name: s.stockName,
+    market: s.sosok === "1" ? "코스닥" : "코스피",
+    type: s.stockEndType,
+    price: toNumber(s.closePrice),
+    changePct: toNumber(s.fluctuationsRatio),
+    value: Math.round((toNumber(s.accumulatedTradingValue) ?? 0) / 100),
+    marketValue: toNumber(s.marketValue),
+    limit: s.compareToPreviousPrice?.name === "UPPER_LIMIT" ? "upper" : s.compareToPreviousPrice?.name === "LOWER_LIMIT" ? "lower" : null,
+  };
+}
+
+// 실시간 순위: up(상승률) / down(하락률) / priceTop(거래대금). total은 그 목록 전체 종목 수
+export async function getRanking(kind, market, size = 100) {
+  const j = await fetchJson(`https://m.stock.naver.com/api/stocks/${kind}/${market}?page=1&pageSize=${size}`, { headers: REFERER });
+  return { total: j.totalCount ?? 0, stocks: (j.stocks || []).map(liveRow) };
+}
+
+// 업종·테마 소속 종목의 지금 시세
+export async function getGroupLive(kind, no) {
+  const j = await fetchJson(`https://m.stock.naver.com/api/stocks/${kind}/${no}?page=1&pageSize=100`, { headers: REFERER });
+  return { name: j.groupInfo?.name ?? null, stocks: (j.stocks || []).map(liveRow) };
 }
 
 // 국내 지수 일봉 (오래된 순)

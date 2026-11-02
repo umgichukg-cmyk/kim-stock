@@ -442,6 +442,201 @@ async function loadKrBriefing() {
   }
 }
 
+// ---------- 한국 시장 장중 흐름 탭 ----------
+
+let liveData = null;
+let liveLoading = false;
+const liveScores = { at: 0, byCode: new Map() };
+const LIVE_CHART_ID = { KOSPI: "kospi", KOSDAQ: "kosdaq", KPI200: "kpi200" }; // 누르면 여는 상세 차트 (/api/chart id)
+const LIVE_STATUS = { OPEN: "장중", CLOSE: "장 마감", PREOPEN: "장 시작 전" };
+
+// 오늘 지수 1분봉 선 그래프. 가로축은 09:00~15:30 고정이라 장이 얼마나 지났는지도 보임
+function intradayChart(points, prevClose) {
+  const W = 320, H = 120, top = 8, bottom = 18;
+  if (!points?.length) return `<div class="state" style="padding:30px 0">오늘 분봉이 아직 없어요.</div>`;
+  const toMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(2, 4));
+  const start = 9 * 60, end = 15 * 60 + 30;
+  const prices = points.map((p) => p[1]);
+  let lo = Math.min(...prices, prevClose ?? Infinity);
+  let hi = Math.max(...prices, prevClose ?? -Infinity);
+  const pad = (hi - lo) * 0.08 || hi * 0.002;
+  lo -= pad;
+  hi += pad;
+  const x = (t) => (Math.min(Math.max(toMin(t) - start, 0), end - start) / (end - start)) * W;
+  const y = (v) => top + (1 - (v - lo) / (hi - lo)) * (H - top - bottom);
+  const line = points.map((p, i) => `${i ? "L" : "M"}${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join("");
+  const last = points.at(-1);
+  const color = prevClose == null || last[1] === prevClose ? "var(--muted)" : last[1] > prevClose ? "var(--up)" : "var(--down)";
+  const base = prevClose == null ? "" : `<line x1="0" x2="${W}" y1="${y(prevClose)}" y2="${y(prevClose)}" stroke="var(--muted)" stroke-dasharray="3 3" stroke-width="1"/>`;
+  const area = `${line}L${x(last[0]).toFixed(1)},${H - bottom}L${x(points[0][0]).toFixed(1)},${H - bottom}Z`;
+  const ticks = [["0900", "9시"], ["1100", "11시"], ["1300", "13시"], ["1530", "15:30"]]
+    .map(([t, l], i, a) => `<text x="${x(t)}" y="${H - 4}" text-anchor="${i === 0 ? "start" : i === a.length - 1 ? "end" : "middle"}">${l}</text>`)
+    .join("");
+  return `<svg class="intraday" viewBox="0 0 ${W} ${H}" role="img" aria-label="오늘 지수 흐름">
+    <path d="${area}" fill="${color}" opacity="0.08"/>${base}
+    <path d="${line}" fill="none" stroke="${color}" stroke-width="1.6"/>
+    <circle cx="${x(last[0])}" cy="${y(last[1])}" r="2.8" fill="${color}"/>
+    <g class="ticks">${ticks}</g>
+  </svg>`;
+}
+
+function liveIndexCard(x) {
+  if (!x.ok) return `<div class="quote"><div class="quote-name">${esc(x.name)}</div><div class="quote-price flat">-</div><div class="quote-chg flat">불러오지 못함</div></div>`;
+  const prices = x.points.map((p) => p[1]);
+  const hi = prices.length ? Math.max(...prices) : null;
+  const lo = prices.length ? Math.min(...prices) : null;
+  const id = LIVE_CHART_ID[x.symbol];
+  return `<button class="quote live-index" type="button" data-live-chart="${id}" title="누르면 ${esc(x.name)} 상세 차트">
+    <div class="quote-name">${esc(x.name)}</div>
+    <div class="quote-price ${dir(x.changePct)}">${num(x.price)}</div>
+    <div class="quote-chg ${dir(x.changePct)}">${arrow(x.changePct)} ${num(Math.abs(x.change ?? 0))} (${pct(x.changePct)})</div>
+    ${intradayChart(x.points, x.prevClose)}
+    <div class="live-range"><span>전일 ${num(x.prevClose)}</span><span>오늘 고가 ${num(hi)} · 저가 ${num(lo)}</span></div>
+  </button>`;
+}
+
+// 점수 상자: 아직 계산 전이면 자리만 잡아 두고 나중에 채움
+function liveScore(s) {
+  const sc = liveScores.byCode.get(s.code);
+  return sc ? scoreBadge({ score: sc }) : `<span class="sc na" data-score-code="${esc(s.code)}">…</span>`;
+}
+
+async function fillLiveScores(codes) {
+  // 점수는 장중에도 천천히 바뀌어서 10분에 한 번만 다시 계산
+  const stale = Date.now() - liveScores.at > 600_000;
+  const need = [...new Set(codes)].filter((c) => stale || !liveScores.byCode.has(c)).slice(0, 40);
+  if (need.length) {
+    try {
+      const data = await getJson(`/api/watch?codes=${need.join(",")}`);
+      if (stale) liveScores.at = Date.now();
+      for (const p of data.items) liveScores.byCode.set(p.code, p.score);
+    } catch {
+      // 점수를 못 받아도 순위는 그대로 보여줌
+    }
+  }
+  for (const el of document.querySelectorAll("#view-krlive [data-score-code]")) {
+    const sc = liveScores.byCode.get(el.dataset.scoreCode);
+    el.outerHTML = sc ? scoreBadge({ score: sc }) : `<span class="sc na" title="점수 없음">-</span>`;
+  }
+}
+
+async function loadKrLive({ quiet = false } = {}) {
+  if (liveLoading) return;
+  liveLoading = true;
+  if (!quiet && !liveData) $("#live-indices").innerHTML = Array.from({ length: 3 }, () => `<div class="skeleton" style="height:230px"></div>`).join("");
+  try {
+    const b = await getJson("/api/kr-live");
+    liveData = b;
+    const status = LIVE_STATUS[b.status] || b.status || "";
+    const at = b.tradedAt ? b.tradedAt.slice(11, 16) : timeLabel(new Date(b.updatedAt));
+    $("#live-sub").textContent = `${status ? `${status} · ` : ""}${at} 기준 · 네이버 실시간 시세${b.status === "OPEN" ? " · 1분마다 자동 갱신" : ""}`;
+    const badge = $("#live-badge");
+    badge.hidden = !status;
+    badge.textContent = status;
+    badge.className = `live-badge${b.status === "OPEN" ? " on" : ""}`;
+
+    $("#live-indices").innerHTML = b.indices.map(liveIndexCard).join("");
+
+    const cell = (v) => (v == null ? "<td>-</td>" : `<td class="num ${dir(v)}">${v > 0 ? "+" : ""}${v.toLocaleString("ko-KR")}</td>`);
+    $("#live-investors").innerHTML =
+      `<thead><tr><th>시장</th><th>외국인</th><th>기관</th><th>개인</th></tr></thead><tbody>` +
+      [["KOSPI", "코스피"], ["KOSDAQ", "코스닥"]]
+        .map(([k, label]) => {
+          const v = b.investors[k];
+          return v ? `<tr><td>${label}</td>${cell(v.foreign)}${cell(v.institution)}${cell(v.individual)}</tr>` : `<tr><td>${label}</td><td colspan="3">데이터 없음</td></tr>`;
+        })
+        .join("") +
+      `</tbody>`;
+
+    $("#live-breadth").innerHTML = [["KOSPI", "코스피"], ["KOSDAQ", "코스닥"]]
+      .map(([k, label]) => {
+        const br = b.breadth[k];
+        const total = br.up + br.down;
+        const w = (n) => (total ? (n / total) * 100 : 0);
+        return `<div class="live-breadth">
+          <div class="live-breadth-head"><b>${label}</b><span>상승 <b class="up">${br.up.toLocaleString()}</b> · 하락 <b class="down">${br.down.toLocaleString()}</b> · 상한가 <b class="up">${br.upper}</b> · 하한가 <b class="down">${br.lower}</b></span></div>
+          <div class="breadth-bar"><span style="width:${w(br.up)}%;background:var(--up)"></span><span style="width:${w(br.down)}%;background:var(--down)"></span></div>
+        </div>`;
+      })
+      .join("");
+
+    const pctVal = (s) => `<span class="vl ${dir(s.changePct)}">${pct(s.changePct)}</span>`;
+    const limitTag = (s) => (s.limit === "upper" ? `<span class="tbadge new">상한</span>` : s.limit === "lower" ? `<span class="tbadge turn">하한</span>` : "");
+    $("#live-movers").innerHTML =
+      rankList("상승률 상위", b.movers.gainers, (s) => limitTag(s) + liveScore(s) + pctVal(s)) +
+      rankList("하락률 상위", b.movers.losers, (s) => limitTag(s) + liveScore(s) + pctVal(s)) +
+      rankList("거래대금 상위", b.movers.value, (s) => `<span class="vl">${s.value.toLocaleString("ko-KR")}억</span>${liveScore(s)}${pctVal(s)}`);
+    const limitList = (title, items) =>
+      items.length
+        ? rankList(`${title} ${items.length}종목`, items, (s) => `<span class="vl">${s.value.toLocaleString("ko-KR")}억</span>${liveScore(s)}${pctVal(s)}`)
+        : `<div><p class="col-title">${title}</p><p class="sub">지금은 없어요.</p></div>`;
+    $("#live-limits").innerHTML = limitList("상한가", b.limits.upper) + limitList("하한가", b.limits.lower);
+
+    const groupAttrs = (kind) => (g) => `data-live-group="${kind}" data-no="${esc(g.no)}" data-name="${esc(g.name)}" data-pct="${g.changePct}" data-count="${g.count}" data-up="${g.up}" data-down="${g.down}"`;
+    const groupVal = (g) => `<span class="cnt">${g.up}↑ ${g.down}↓</span>${pctVal(g)}`;
+    $("#live-industries").innerHTML = b.industries
+      ? rankList("많이 오른 업종", b.industries.top, groupVal, groupAttrs("industry")) + rankList("많이 내린 업종", b.industries.bottom, groupVal, groupAttrs("industry"))
+      : `<p class="sub">업종 데이터를 불러오지 못했어요.</p>`;
+    $("#live-themes").innerHTML = b.themes
+      ? rankList("많이 오른 테마", b.themes.top, groupVal, groupAttrs("theme")) + rankList("많이 내린 테마", b.themes.bottom, groupVal, groupAttrs("theme"))
+      : `<p class="sub">테마 데이터를 불러오지 못했어요.</p>`;
+    $("#live-group-sub").textContent = `지금 시세 기준 네이버 평균 등락률 · 업종 ${b.industries?.count ?? 0}개 · 테마 ${b.themes?.count ?? 0}개 · 누르면 대표 종목`;
+
+    const codes = [...b.movers.gainers, ...b.movers.losers, ...b.movers.value, ...b.limits.upper, ...b.limits.lower].map((s) => s.code);
+    fillLiveScores(codes);
+  } catch (e) {
+    if (!liveData) $("#live-indices").innerHTML = `<div class="state">장중 흐름을 불러오지 못했어요.<br><small>${esc(e.message)}</small><br><button data-live-retry>다시 시도</button></div>`;
+  } finally {
+    liveLoading = false;
+  }
+}
+
+// 업종·테마를 누르면 대표 종목의 지금 시세
+async function openLiveGroup(el) {
+  const { liveGroup: kind, no, name, pct: p, count, up, down } = el.dataset;
+  const label = kind === "industry" ? "업종" : "테마";
+  const head = `<div class="detail-head">
+      <div>
+        <h3 id="detail-title">${esc(name)} <span class="num ${dir(Number(p))}" style="font-size:18px">${pct(Number(p))}</span></h3>
+        <div class="card-meta">지금 시세 기준 · ${label} ${count}종목 중 상승 ${up} · 하락 ${down}</div>
+      </div>
+      <button class="close-btn" data-close aria-label="닫기">×</button>
+    </div>`;
+  $("#detail-body").innerHTML = `${head}<div class="skeleton" style="height:300px;margin-top:16px"></div>`;
+  if (!$("#detail").open) $("#detail").showModal();
+  try {
+    const g = await getJson(`/api/kr-live?group=${kind}&no=${encodeURIComponent(no)}`);
+    if ($("#detail-title")?.textContent.indexOf(name) !== 0) return; // 그사이 다른 창을 열었으면 무시
+    $("#detail-body").innerHTML = `${head}
+      <div class="section-title"><span>대표 종목 (시가총액 순)</span><span class="sub">보통주 최대 15개 · 종목을 누르면 상세 분석</span></div>
+      ${
+        g.stocks.length
+          ? rankList(
+              "",
+              g.stocks,
+              (s) => `<span class="vl" style="color:var(--muted)">${capLabel(s.marketValue)}</span><span class="vl">${won(s.price)}</span><span class="vl ${dir(s.changePct)}">${pct(s.changePct)}</span>`
+            )
+          : `<p class="sub">대표 종목 데이터가 없어요.</p>`
+      }
+      <p class="sub" style="margin-top:10px">${label} 등락률은 네이버가 계산한 소속 종목 평균이에요.</p>`;
+  } catch (e) {
+    $("#detail-body").innerHTML = `${head}<div class="state">불러오지 못했어요.<br><small>${esc(e.message)}</small></div>`;
+  }
+}
+
+$("#view-krlive").addEventListener("click", (e) => {
+  const chartCard = e.target.closest("[data-live-chart]");
+  if (chartCard) return openMarket(chartCard.dataset.liveChart);
+  const g = e.target.closest("[data-live-group]");
+  if (g) return openLiveGroup(g);
+  if (e.target.closest("[data-live-retry]")) return loadKrLive();
+});
+
+// 장중이고 이 탭을 보고 있을 때만 1분마다 갱신
+setInterval(() => {
+  if (document.visibilityState === "visible" && !$("#view-krlive").hidden && !$("#detail").open && liveData?.status === "OPEN") loadKrLive({ quiet: true });
+}, 60_000);
+
 // ---------- 상한가·하한가 탭 ----------
 
 let limitsLoaded = 0;
@@ -468,7 +663,7 @@ async function loadLimits() {
   }
 }
 
-// ---------- 한국 테마 흐름 탭 ----------
+// ---------- 한국 테마 브리핑 탭 ----------
 
 let krThemesLoaded = 0;
 let krThemes = null;
@@ -510,7 +705,7 @@ async function loadKrThemes() {
     krThemesLoaded = Date.now();
     const d = krThemes.basisDate;
     const date = new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T12:00:00`);
-    $("#krthemes-title").textContent = `${date.getMonth() + 1}/${date.getDate()}(${"일월화수목금토"[date.getDay()]}) 한국 테마 흐름`;
+    $("#krthemes-title").textContent = `${date.getMonth() + 1}/${date.getDate()}(${"일월화수목금토"[date.getDay()]}) 한국 테마 브리핑`;
     $("#krthemes-sub").textContent = `전일 종가 기준 · 네이버 테마 ${krThemes.count}개 · 테마를 누르면 관련 종목`;
     // 새로 생긴 테마가 있으면 위쪽에 따로 알림 (누르면 관련 종목)
     const nt = krThemes.newThemes || [];
@@ -649,10 +844,10 @@ async function loadIpo() {
   }
 }
 
-const VIEWS = ["themes", "top30", "briefing", "krbriefing", "krthemes", "limits", "ipo", "watch"];
+const VIEWS = ["krlive", "themes", "top30", "briefing", "krbriefing", "krthemes", "limits", "ipo", "watch"];
 
 function showView(view) {
-  if (!VIEWS.includes(view)) view = "themes";
+  if (!VIEWS.includes(view)) view = "krlive";
   for (const v of VIEWS) {
     $(`#view-${v}`).hidden = v !== view;
     $(`#tab-${v}`).setAttribute("aria-selected", v === view);
@@ -664,6 +859,7 @@ function showView(view) {
     const offset = tab.getBoundingClientRect().left - bar.getBoundingClientRect().left;
     bar.scrollLeft += offset - (bar.clientWidth - tab.offsetWidth) / 2;
   });
+  if (view === "krlive") loadKrLive({ quiet: true });
   if (view === "top30") loadTop30();
   if (view === "limits") loadLimits();
   if (view === "krthemes") loadKrThemes();
@@ -671,12 +867,12 @@ function showView(view) {
   if (view === "briefing") loadBriefing();
   if (view === "krbriefing") loadKrBriefing();
   if (view === "watch") loadWatch();
-  const hash = view === "themes" ? "" : `#${view}`;
+  const hash = view === "krlive" ? "" : `#${view}`;
   if (location.hash !== hash) history.replaceState(null, "", hash || location.pathname);
 }
 
 // 주소의 # 부분이 바뀌면(뒤로 가기, 주소 직접 입력) 그 탭으로
-window.addEventListener("hashchange", () => showView(location.hash.slice(1) || "themes"));
+window.addEventListener("hashchange", () => showView(location.hash.slice(1) || "krlive"));
 
 document.querySelector(".tabs").addEventListener("click", (e) => {
   const tab = e.target.closest("[data-view]");
@@ -1124,7 +1320,7 @@ async function openMarket(id, range = "1d") {
       ${statBox("52주 최저", num(m.low52))}
       ${statBox("봉 개수", `${c.length.toLocaleString()}개`)}
     </div>
-    <p class="sub">데이터: Yahoo Finance · 지연될 수 있어요. 차트는 드래그로 이동, 두 손가락으로 확대할 수 있어요.</p>`;
+    <p class="sub">데이터: ${esc(m.source || "Yahoo Finance")} · 지연될 수 있어요. 차트는 드래그로 이동, 두 손가락으로 확대할 수 있어요.</p>`;
 
   if (c.length) drawMarketChart($("#market-chart"), m);
   else $("#market-chart").innerHTML = `<div class="state">이 기간에는 데이터가 없어요.</div>`;
@@ -1514,4 +1710,4 @@ account
   });
 
 load();
-if (location.hash) showView(location.hash.slice(1));
+showView(location.hash.slice(1) || "krlive");

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>김가네 주식</title>
-  <meta name="description" content="전일 미국 테마 흐름으로 고른 한국 종목을 기술·수급 지표로 점수화합니다.">
+  <meta name="description" content="전일 미국 테마 브리핑으로 고른 한국 종목을 기술·수급 지표로 점수화합니다.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F26B1D'/%3E%3Cpath d='M7 22l6-7 4 4 8-9' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -41,15 +41,50 @@
     </section>
 
     <nav class="tabs" role="tablist" aria-label="화면 선택">
-      <button class="tab" role="tab" id="tab-themes" data-view="themes" aria-selected="true">미국 테마 흐름</button>
+      <button class="tab" role="tab" id="tab-krlive" data-view="krlive" aria-selected="true">한국 시장 장중 흐름</button>
+      <button class="tab" role="tab" id="tab-themes" data-view="themes" aria-selected="false">미국 테마 브리핑</button>
       <button class="tab" role="tab" id="tab-top30" data-view="top30" aria-selected="false">한국주식 상위 30</button>
       <button class="tab" role="tab" id="tab-briefing" data-view="briefing" aria-selected="false">미국 시장 브리핑</button>
       <button class="tab" role="tab" id="tab-krbriefing" data-view="krbriefing" aria-selected="false">한국 시장 브리핑</button>
-      <button class="tab" role="tab" id="tab-krthemes" data-view="krthemes" aria-selected="false">한국 테마 흐름</button>
+      <button class="tab" role="tab" id="tab-krthemes" data-view="krthemes" aria-selected="false">한국 테마 브리핑</button>
       <button class="tab" role="tab" id="tab-limits" data-view="limits" aria-selected="false">상한가·하한가</button>
       <button class="tab" role="tab" id="tab-ipo" data-view="ipo" aria-selected="false">공모주 청약</button>
       <button class="tab" role="tab" id="tab-watch" data-view="watch" aria-selected="false">관심 종목</button>
     </nav>
+
+    <section id="view-krlive">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>한국 시장 장중 흐름</h2>
+            <p class="sub" id="live-sub">네이버 실시간 시세 · 장중에는 1분마다 자동 갱신</p>
+          </div>
+          <span class="live-badge" id="live-badge" hidden></span>
+        </div>
+        <div class="live-index-grid" id="live-indices"></div>
+        <div class="two-col" style="margin-top:18px">
+          <div>
+            <p class="col-title">투자자별 순매수 <span class="sub">(억 원 · 장중 잠정치)</span></p>
+            <div class="table-wrap"><table class="flow-table" id="live-investors"></table></div>
+          </div>
+          <div>
+            <p class="col-title">오른 종목 · 내린 종목 <span class="sub">(네이버 집계)</span></p>
+            <div id="live-breadth"></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>지금 많이 움직인 종목</h2><p class="sub">보통주 · 상승·하락률은 거래대금 10억 이상만 · 색 상자는 종합 점수 · 종목을 누르면 상세 분석</p></div></div>
+        <div class="three-col" id="live-movers"></div>
+        <div class="two-col" id="live-limits" style="margin-top:16px"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>업종 · 테마</h2><p class="sub" id="live-group-sub">지금 시세 기준 네이버 평균 등락률 · 누르면 대표 종목</p></div></div>
+        <div class="two-col" id="live-industries"></div>
+        <div class="two-col" id="live-themes" style="margin-top:16px"></div>
+      </div>
+      <p class="notice">장중 숫자는 네이버 실시간 시세라 조금 늦을 수 있어요. 투자자별 순매수는 장중 잠정치라 장 마감 뒤 확정치와 다를 수 있어요. 지금 탭은 오늘 장을 보여주고, 어제 장 마감 결과는 한국 시장 브리핑 탭에 있어요.</p>
+    </section>
 
     <section class="panel" id="view-limits" hidden>
       <div class="panel-head">
@@ -57,6 +92,7 @@
           <h2 id="limits-title">상한가·하한가</h2>
           <p class="sub" id="limits-sub">전일 한국 시장 종가 기준 · 상한가(하한가)로 마감한 보통주 · 거래대금 큰 순 · 색 상자는 종합 점수 · 종목을 누르면 상세 분석</p>
         </div>
+        <span class="live-badge closed" title="장 마감된 결과를 보여주는 탭이에요">장 종료</span>
       </div>
       <div class="two-col" id="limits"></div>
       <p class="notice">상한가·하한가는 전일 대비 ±29% 이상이면서 종가가 그날 고가(저가)와 같은 종목이에요. 장중에 닿았다가 내려온 종목과, 전일 종가가 없는 신규 상장 첫날 종목은 빠져요. 평일 저녁 7시쯤 갱신돼요.</p>
@@ -65,10 +101,13 @@
     <section class="panel" id="view-krthemes" hidden>
       <div class="panel-head">
         <div>
-          <h2 id="krthemes-title">한국 테마 흐름</h2>
+          <h2 id="krthemes-title">한국 테마 브리핑</h2>
           <p class="sub" id="krthemes-sub">전일 한국 시장 종가 기준 · 네이버 테마 분류 · 테마를 누르면 관련 종목</p>
         </div>
-        <input class="theme-search" id="krthemes-search" type="search" placeholder="테마 이름 검색 (예: 반도체, 원전)" aria-label="테마 이름 검색">
+        <div class="head-right">
+          <span class="live-badge closed" title="장 마감된 결과를 보여주는 탭이에요">장 종료</span>
+          <input class="theme-search" id="krthemes-search" type="search" placeholder="테마 이름 검색 (예: 반도체, 원전)" aria-label="테마 이름 검색">
+        </div>
       </div>
       <div class="new-themes" id="krthemes-new" hidden></div>
       <p class="notice" style="margin:0 0 12px">테마 등락률은 네이버가 계산한 테마 평균이에요. 그날 상장한 종목처럼 전일 종가가 없는 종목은 관련 종목 목록에서 빠져서, 목록 흐름과 테마 등락률이 다를 수 있어요. 평일 저녁 7시쯤 갱신돼요.</p>
@@ -113,6 +152,7 @@
             <h2 id="kr-title">전일 한국 시장 브리핑</h2>
             <p class="sub" id="kr-sub">장 마감된 마지막 한국 거래일 기준 · 숫자로 자동 작성한 요약이에요</p>
           </div>
+          <span class="live-badge closed" title="장 마감된 결과를 보여주는 탭이에요">장 종료</span>
         </div>
         <ul class="briefing-summary" id="kr-summary"></ul>
       </div>
@@ -145,6 +185,7 @@
             <h2 id="briefing-title">전일 미국 시장 브리핑</h2>
             <p class="sub">장 마감된 마지막 미국 거래일 기준 · 숫자로 자동 작성한 요약이에요</p>
           </div>
+          <span class="live-badge closed" title="장 마감된 결과를 보여주는 탭이에요">장 종료</span>
         </div>
         <ul class="briefing-summary" id="briefing-summary"></ul>
       </div>
@@ -174,18 +215,20 @@
           <h2>한국 시장 전체 점수 상위 30</h2>
           <p class="sub" id="top30-sub">마지막으로 끝난 장 기준 · 코스피·코스닥 일반 주식 전체를 점수화</p>
         </div>
+        <span class="live-badge closed" title="장 마감된 결과를 보여주는 탭이에요">장 종료</span>
       </div>
       <div class="picks" id="top30"></div>
       <p class="notice" id="top30-note" hidden></p>
     </section>
 
-    <div id="view-themes">
+    <div id="view-themes" hidden>
     <section class="panel">
       <div class="panel-head">
         <div>
-          <h2>미국 테마 흐름</h2>
+          <h2>미국 테마 브리핑</h2>
           <p class="sub"><span id="session-date">전일</span> 미국장 마감 기준 대표 종목 평균 등락 · 상승률 높은 순서 · <span id="top-count">상승한 테마</span>의 한국 종목을 아래에서 점수화</p>
         </div>
+        <span class="live-badge closed" title="장 마감된 결과를 보여주는 탭이에요">장 종료</span>
       </div>
       <div class="themes" id="themes"></div>
     </section>

@@ -97,6 +97,9 @@ export const MARKET = [
   { id: "nasdaqf", name: "나스닥 선물", symbol: "NQ=F", unit: "" },
 ];
 
+// 메인 지표 줄에는 없지만 상세 차트로 열 수 있는 지표 (한국 시장 장중 흐름 탭)
+export const CHART_ONLY = [{ id: "kpi200", name: "코스피200", symbol: "^KS200", unit: "", naver: "KPI200", naverHistory: true }];
+
 // "미국 시장 브리핑" 탭에 보여줄 항목 (Yahoo Finance 심볼)
 export const BRIEFING = {
   indices: [

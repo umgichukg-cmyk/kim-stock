@@ -129,6 +129,7 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .tbadge.turn { border: 1px dashed var(--muted); color: var(--text); }
 .new-themes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; padding: 10px 12px; border: 1px solid #19a55a; border-radius: 10px; background: color-mix(in srgb, #19a55a 12%, transparent); font-size: 13px; }
 .new-themes b { color: #19a55a; margin-right: 4px; }
+.new-themes[hidden] { display: none; }
 .new-chip { height: 28px; border-color: #19a55a; color: var(--text); }
 .new-chip small { color: var(--muted); font-weight: 500; }
 
@@ -164,7 +165,7 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .ipo-links a { color: var(--accent); text-decoration: none; font-weight: 600; }
 .ipo-links a:hover { text-decoration: underline; }
 
-/* 한국 테마 흐름 */
+/* 한국 테마 브리핑 */
 .theme-search { width: 260px; max-width: 100%; height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
 .theme-search:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .rank-list .cnt { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
@@ -367,4 +368,27 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   .watch-btn { padding: 0 8px; font-size: 12px; }
   .head-actions { gap: 6px; }
   .memo-form { flex-direction: column; align-items: stretch; }
+}
+
+/* 한국 시장 장중 흐름 */
+.live-index-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+button.live-index { width: 100%; background: var(--surface); text-align: left; transition: border-color 0.15s, transform 0.15s; }
+button.live-index:hover { border-color: var(--accent); transform: translateY(-2px); }
+.live-index .intraday { display: block; width: 100%; height: auto; margin-top: 8px; }
+.intraday .ticks text { fill: var(--muted); font-size: 9px; font-family: "Space Grotesk", sans-serif; }
+.live-range { display: flex; justify-content: space-between; gap: 6px; flex-wrap: wrap; margin-top: 2px; color: var(--muted); font-size: 11.5px; }
+.live-badge { padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 12px; font-weight: 700; }
+.live-badge.on { background: var(--up); color: #fff; }
+.live-badge.on::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #fff; vertical-align: 1px; animation: blink 1.6s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: 0.25; } }
+.live-badge.closed { background: var(--muted); color: #fff; white-space: nowrap; }
+.live-badge.closed::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #fff; opacity: 0.7; vertical-align: 1px; }
+.head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.live-breadth + .live-breadth { margin-top: 12px; }
+.live-breadth-head { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; font-size: 12.5px; color: var(--muted); }
+.live-breadth-head b { font-family: "Space Grotesk", "Noto Sans KR", sans-serif; }
+.live-breadth-head > b { color: var(--text); }
+.col-title .sub { font-weight: 500; }
+@media (max-width: 860px) {
+  .live-index-grid { grid-template-columns: 1fr; }
 }
