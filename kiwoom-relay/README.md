@@ -87,7 +87,7 @@ KIWOOM_MOCK=false
 OWNER_EMAIL=여기에_김가네주식_로그인_이메일
 SUPABASE_URL=https://kxljcwporlfzmtfgyqmr.supabase.co
 SUPABASE_KEY=sb_publishable_pP-EhRkiQbLPned3NVRP9Q_Rpjut7ND
-ALLOWED_ORIGINS=https://kim-stock-kimga.vercel.app
+ALLOWED_ORIGINS=https://kim-stock-kimga.vercel.app,https://kim-stock-liart.vercel.app
 PORT=8080
 ```
 

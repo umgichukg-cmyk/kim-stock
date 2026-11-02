@@ -23,7 +23,7 @@ const CONFIG = {
   supabaseUrl: env("SUPABASE_URL"),
   supabaseKey: env("SUPABASE_KEY"), // 공개용(publishable) 키
   ownerEmail: env("OWNER_EMAIL").toLowerCase(),
-  origins: env("ALLOWED_ORIGINS", "https://kim-stock-kimga.vercel.app").split(",").map((s) => s.trim()).filter(Boolean),
+  origins: env("ALLOWED_ORIGINS", "https://kim-stock-kimga.vercel.app,https://kim-stock-liart.vercel.app").split(",").map((s) => s.trim()).filter(Boolean),
 };
 const KIWOOM = CONFIG.mock ? "https://mockapi.kiwoom.com" : "https://api.kiwoom.com";
 
