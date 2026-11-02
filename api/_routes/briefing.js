@@ -1,10 +1,10 @@
 // GET /api/briefing - 전일(장 마감된 마지막 거래일) 미국 시장 브리핑
 // 지수·금리·원자재·섹터·빅테크 등락과, 그 숫자로 만든 요약 문장, 관련 뉴스
-import { BRIEFING } from "../config/themes.js";
-import { getDailyChange } from "./_lib/yahoo.js";
-import { getNews } from "./_lib/naver.js";
-import { rankThemes } from "./_lib/analyze.js";
-import { sendJson, sendError } from "./_lib/http.js";
+import { BRIEFING } from "../../config/themes.js";
+import { getDailyChange } from "../_lib/yahoo.js";
+import { getNews } from "../_lib/naver.js";
+import { rankThemes } from "../_lib/analyze.js";
+import { sendJson, sendError } from "../_lib/http.js";
 
 const sign = (v, d = 2) => `${v > 0 ? "+" : ""}${v.toFixed(d)}%`;
 const fmt = (v, d = 2) => v.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });

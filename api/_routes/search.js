@@ -1,6 +1,6 @@
 // GET /api/search?q=삼성 - 종목명으로 국내 종목 찾기
-import { searchStocks } from "./_lib/naver.js";
-import { sendJson, sendError } from "./_lib/http.js";
+import { searchStocks } from "../_lib/naver.js";
+import { sendJson, sendError } from "../_lib/http.js";
 
 export default async function handler(req, res) {
   const q = String(req.query.q ?? "").trim().slice(0, 30);

@@ -1,6 +1,6 @@
 // GET /api/stock?code=005930 - 종목 상세 (일봉, 20일 수급, 점수 근거)
-import { analyzeStock } from "./_lib/analyze.js";
-import { sendJson, sendError, cleanCode } from "./_lib/http.js";
+import { analyzeStock } from "../_lib/analyze.js";
+import { sendJson, sendError, cleanCode } from "../_lib/http.js";
 
 export default async function handler(req, res) {
   const code = cleanCode(req.query.code);

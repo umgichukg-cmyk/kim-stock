@@ -2,8 +2,8 @@
 // 청약 일정이 잡힌 기업은 상세 정보로 참고용 "청약 점수"를 계산합니다.
 //   기관 경쟁률 40 + 공모가 위치 25 + 실적 20 + 공모 규모 15 = 100
 //   검증되지 않은 규칙 기반 점수이고, 의무보유확약·유통 물량은 데이터가 없어 빠져 있습니다.
-import { getIpoList, getIpoDetail } from "./_lib/naver.js";
-import { sendJson, sendError } from "./_lib/http.js";
+import { getIpoList, getIpoDetail } from "../_lib/naver.js";
+import { sendJson, sendError } from "../_lib/http.js";
 
 const eok = (won) => `${Math.round(won / 1e8).toLocaleString("ko-KR")}억`;
 

@@ -1,8 +1,8 @@
 // GET /api/kr-themes        - 전일(장 마감 기준) 한국 테마 목록 (관련 종목 제외, 가볍게)
 // GET /api/kr-themes?no=123 - 그 테마의 관련 종목 (기준일 등락률 높은 순)
 // 매일 장 마감 후 계산해 둔 kr-themes.json을 읽습니다.
-import { readDataFile, DataNotReady } from "./_lib/datafile.js";
-import { sendJson, sendError } from "./_lib/http.js";
+import { readDataFile, DataNotReady } from "../_lib/datafile.js";
+import { sendJson, sendError } from "../_lib/http.js";
 
 export default async function handler(req, res) {
   try {

@@ -1,7 +1,7 @@
 // GET /api/picks - 미국 테마 순위 + 상위 테마의 한국 종목 점수
-import { TOP_THEMES } from "../config/themes.js";
-import { analyzeStock, rankThemes } from "./_lib/analyze.js";
-import { sendJson, sendError } from "./_lib/http.js";
+import { TOP_THEMES } from "../../config/themes.js";
+import { analyzeStock, rankThemes } from "../_lib/analyze.js";
+import { sendJson, sendError } from "../_lib/http.js";
 
 export default async function handler(req, res) {
   try {

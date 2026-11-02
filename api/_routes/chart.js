@@ -1,8 +1,8 @@
 // GET /api/chart?id=kospi&range=1d - 시장 지표 상세 차트 (config/themes.js의 MARKET·CHART_ONLY 목록만 허용)
-import { MARKET, CHART_ONLY } from "../config/themes.js";
-import { getCandles, CHART_RANGES } from "./_lib/yahoo.js";
-import { getIndexQuote, getIndexMinuteCandles, getIndexCandles } from "./_lib/naver.js";
-import { sendJson, sendError } from "./_lib/http.js";
+import { MARKET, CHART_ONLY } from "../../config/themes.js";
+import { getCandles, CHART_RANGES } from "../_lib/yahoo.js";
+import { getIndexQuote, getIndexMinuteCandles, getIndexCandles } from "../_lib/naver.js";
+import { sendJson, sendError } from "../_lib/http.js";
 
 // 한국 지수의 1일·5일 차트는 네이버 분봉 (Yahoo 장중 값이 네이버 현재가와 다를 때가 있음)
 const NAVER_INTRADAY = { "1d": { days: 1, bucket: 5 }, "5d": { days: 5, bucket: 15 } };

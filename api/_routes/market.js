@@ -1,8 +1,8 @@
 // GET /api/market - 코스피/코스닥/미국 선물/환율 등
-import { MARKET } from "../config/themes.js";
-import { getIntraday } from "./_lib/yahoo.js";
-import { getIndexQuote } from "./_lib/naver.js";
-import { sendJson, sendError } from "./_lib/http.js";
+import { MARKET } from "../../config/themes.js";
+import { getIntraday } from "../_lib/yahoo.js";
+import { getIndexQuote } from "../_lib/naver.js";
+import { sendJson, sendError } from "../_lib/http.js";
 
 export default async function handler(req, res) {
   try {

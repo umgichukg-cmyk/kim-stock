@@ -30,9 +30,10 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   try {
     if (url.pathname.startsWith("/api/")) {
+      // Vercel처럼 api/[route].js 하나가 모든 /api/* 요청을 받음
       const name = url.pathname.slice(5).replace(/[^a-z0-9-]/gi, "");
-      const mod = await import(pathToFileURL(join(ROOT, "api", `${name}.js`)).href);
-      req.query = Object.fromEntries(url.searchParams);
+      const mod = await import(pathToFileURL(join(ROOT, "api", "[route].js")).href);
+      req.query = { ...Object.fromEntries(url.searchParams), route: name };
       const started = Date.now();
       await mod.default(req, wrapResponse(res));
       console.log(`${res.statusCode} ${url.pathname}${url.search} ${Date.now() - started}ms`);

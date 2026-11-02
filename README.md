@@ -27,17 +27,20 @@ index.html          화면 뼈대
 assets/style.css    디자인 (라이트/다크 자동)
 assets/app.js       화면 동작
 config/themes.js    ★ 테마·종목·시장지표 설정 - 종목을 바꾸려면 이 파일만 수정
-api/picks.js        GET /api/picks   테마 순위 + 추천 종목 점수
-api/stock.js        GET /api/stock?code=005930   종목 상세
-api/market.js       GET /api/market  지수·선물·환율
-api/kr-briefing.js  GET /api/kr-briefing  전일 한국 시장 브리핑 (data 브랜치 kr-briefing.json + 주요 뉴스)
-api/kr-themes.js    GET /api/kr-themes(?no=테마번호)  한국 테마 목록 / 테마 관련 종목 (data 브랜치 kr-themes.json)
-api/ipo.js          GET /api/ipo  공모주 청약 일정 (30분 캐시)
-api/briefing.js     GET /api/briefing  전일 미국 시장 브리핑
-api/chart.js        GET /api/chart?id=kospi&range=1d  시장 지표 상세 차트 (1d·5d·1mo·3mo·1y·5y)
-api/search.js       GET /api/search?q=삼성  종목명 검색
-api/news.js         GET /api/news?code=005930  종목 관련 뉴스
-api/top30.js        GET /api/top30  전체 종목 점수 상위 30 (data 브랜치 결과 읽기)
+api/[route].js      모든 /api/* 요청을 받는 서버 함수 하나 (Vercel 무료 요금제 함수 12개 제한) → _routes/로 나눠 줌
+api/_routes/picks.js GET /api/picks   테마 순위 + 추천 종목 점수
+api/_routes/stock.js GET /api/stock?code=005930   종목 상세
+api/_routes/market.js GET /api/market  지수·선물·환율
+api/_routes/kr-briefing.js GET /api/kr-briefing  전일 한국 시장 브리핑 (data 브랜치 kr-briefing.json + 주요 뉴스)
+api/_routes/kr-themes.js GET /api/kr-themes(?no=테마번호)  한국 테마 목록 / 테마 관련 종목 (data 브랜치 kr-themes.json)
+api/_routes/ipo.js  GET /api/ipo  공모주 청약 일정 (30분 캐시)
+api/_routes/briefing.js GET /api/briefing  전일 미국 시장 브리핑
+api/_routes/chart.js GET /api/chart?id=kospi&range=1d  시장 지표 상세 차트 (1d·5d·1mo·3mo·1y·5y)
+api/_routes/search.js GET /api/search?q=삼성  종목명 검색
+api/_routes/news.js GET /api/news?code=005930  종목 관련 뉴스
+api/_routes/top30.js GET /api/top30  전체 종목 점수 상위 30 (data 브랜치 결과 읽기)
+api/_routes/kr-live.js  GET /api/kr-live(?group=industry|theme&no=)  한국 시장 장중 흐름
+api/_routes/watch.js    GET /api/watch?codes=  관심 종목 시세·점수
 api/_lib/           데이터 수집(naver, yahoo)과 점수 계산(score)
 scripts/dev-server.js  내 컴퓨터에서 실행하는 서버
 scripts/backtest.js    백테스트 (미국 테마 전략)

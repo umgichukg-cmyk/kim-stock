@@ -1,7 +1,7 @@
 // GET /api/watch?codes=005930,000660 - 관심 종목들의 지금 시세와 점수 (카드 표시용, 최대 40개)
 // 어떤 종목이 관심 종목인지는 화면이 Supabase에서 읽어 와서 넘겨줍니다. 여기서는 개인 정보를 다루지 않아요.
-import { analyzeStock } from "./_lib/analyze.js";
-import { sendJson, sendError, cleanCode } from "./_lib/http.js";
+import { analyzeStock } from "../_lib/analyze.js";
+import { sendJson, sendError, cleanCode } from "../_lib/http.js";
 
 const MAX = 40;
 

@@ -1,6 +1,6 @@
 // GET /api/news?code=005930 - 종목 관련 최근 뉴스 (제목·언론사·시각·원문 주소)
-import { getNews } from "./_lib/naver.js";
-import { sendJson, sendError, cleanCode } from "./_lib/http.js";
+import { getNews } from "../_lib/naver.js";
+import { sendJson, sendError, cleanCode } from "../_lib/http.js";
 
 export default async function handler(req, res) {
   const code = cleanCode(req.query.code);

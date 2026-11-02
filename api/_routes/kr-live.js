@@ -9,8 +9,8 @@ import {
   getIndustries,
   getThemes,
   getGroupLive,
-} from "./_lib/naver.js";
-import { sendJson, sendError } from "./_lib/http.js";
+} from "../_lib/naver.js";
+import { sendJson, sendError } from "../_lib/http.js";
 
 const INDICES = [
   { symbol: "KOSPI", name: "코스피" },
