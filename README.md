@@ -47,7 +47,7 @@ scripts/dev-server.js  내 컴퓨터에서 실행하는 서버
 scripts/backtest.js    백테스트 (미국 테마 전략)
 scripts/backtest-strategies.js  전략 비교 백테스트 (52주 신고가·저변동성·모멘텀·밤사이 보유)
 scripts/scan-market.js 전체 종목 점수 계산
-.github/workflows/scan-market.yml  평일 저녁 7시 17분 자동 계산 (예비 8시 17분)
+.github/workflows/scan-market.yml  평일 저녁 7시 7분·12분·19분 세 번 자동 계산
 ```
 
 ## 내 컴퓨터에서 실행
@@ -62,7 +62,7 @@ npm run dev
 
 ## 전체 종목 점수 계산 (한국주식 상위 30 탭)
 
-- GitHub Actions가 평일 한국 시간 저녁 7시 17분에 `scripts/scan-market.js`를 실행합니다. 정각은 GitHub 실행이 몰려 늦거나 건너뛰는 일이 있어 피했고, 8시 17분에 예비로 한 번 더 실행합니다.
+- GitHub Actions가 평일 한국 시간 저녁 7시 7분, 12분, 19분에 세 번 `scripts/scan-market.js`를 실행합니다. 정각은 GitHub 실행이 몰려 늦거나 건너뛰는 일이 있어 피했고, 한 번만 성공해도 결과가 반영됩니다.
 - 코스피·코스닥 일반 주식 전체에서 ETF·ETN·우선주·스팩·거래정지와 20일 평균 거래대금 10억 원 미만을 빼고 점수를 계산합니다.
 - 카드의 "연속 N일"은 거래일 기준(주말·휴장일 제외)으로 상위 30에 연속해서 든 날 수입니다. 날짜별 순위는 `history.json`에 60거래일치 보관합니다. 자동 계산이 빠진 거래일이 있으면 그 날에서 연속이 끊깁니다.
 - 같은 실행에서 한국 시장 브리핑(`kr-briefing.json`)도 그날 마감 기준으로 저장합니다. 장중에 실행하면 업종 등락은 빠집니다.

@@ -97,7 +97,7 @@ function renderMarket(items) {
 }
 
 // ---------- 기준 시각 · 다음 업데이트 예정 ----------
-// 한국 탭: GitHub Actions가 평일 19:17(한국 시각)에 계산해서 19:20~19:50쯤 반영, 건너뛰면 20:17에 예비 실행
+// 한국 탭: GitHub Actions가 평일 19:07·19:12·19:19(한국 시각) 세 번 계산해서 19:10~19:40쯤 반영
 // 미국 탭: 미국장 마감(뉴욕 16:00) 뒤 새로 열면 바로 반영. 휴장일은 따로 빼지 않아서 휴장일이면 하루 밀려요.
 
 const KST_MS = 9 * 3600_000;
@@ -121,14 +121,14 @@ const dayUtc = (ymd) => {
 const isWeekend = (utcDay) => [0, 6].includes(new Date(utcDay).getUTCDay());
 const ymdOf = (utcDay) => new Date(utcDay).toISOString().slice(0, 10).replace(/-/g, "");
 
-// 다음 한국 자동 계산 시각: 기준일 다음 평일 중 19:20(+예비 실행까지 75분 여유)이 아직 안 지난 첫날
+// 다음 한국 자동 계산 시각: 기준일 다음 평일 중 19:10(+60분 여유)이 아직 안 지난 첫날
 function nextKrUpdate(basisYmd, now = Date.now()) {
   const p = kstParts(now);
   let day = Date.UTC(p.y, p.m, p.d);
   for (let i = 0; i < 14; i++, day += DAY_MS) {
     if (isWeekend(day) || ymdOf(day) <= basisYmd) continue;
-    const run = day + (19 * 60 + 20) * 60_000 - KST_MS;
-    if (run + 75 * 60_000 > now) return run;
+    const run = day + (19 * 60 + 10) * 60_000 - KST_MS;
+    if (run + 60 * 60_000 > now) return run;
   }
   return null;
 }
@@ -167,7 +167,7 @@ function krUpdateLine(sel, basisYmd, generatedAt) {
   el.innerHTML = updateLineHtml(
     `${kstLabel(basisDay - KST_MS, false)} 장 마감${made}`,
     next ? `${kstLabel(next)}~${kstLabel(next + 30 * 60_000).slice(-5)}` : "-",
-    "평일 저녁 7시 20분쯤 자동 계산해요. 늦어지면 8시 20분쯤 한 번 더 계산해요. 휴장일에는 새 결과가 없어요."
+    "평일 저녁 7시 7분·12분·19분에 세 번 자동 계산해요(한 번만 돼도 반영). 휴장일에는 새 결과가 없어요."
   );
 }
 
