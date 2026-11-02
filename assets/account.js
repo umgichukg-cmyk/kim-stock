@@ -76,10 +76,19 @@ export const hasBroker = () => !!relayUrl();
 // 결과: { ok: true, data } / { ok: false, status, error } - 403은 "계좌 주인이 아님"
 export async function getBrokerBalance() {
   const sb = await getClient();
+  const ask = async (session) => {
+    const res = await fetch(`${relayUrl()}/balance`, { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` } });
+    const body = await res.json().catch(() => ({}));
+    return res.ok ? { ok: true, data: body } : { ok: false, status: res.status, error: body.error || `HTTP ${res.status}` };
+  };
   const { data } = await sb.auth.getSession();
-  const res = await fetch(`${relayUrl()}/balance`, { headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` } });
-  const body = await res.json().catch(() => ({}));
-  return res.ok ? { ok: true, data: body } : { ok: false, status: res.status, error: body.error || `HTTP ${res.status}` };
+  let r = await ask(data.session);
+  // 페이지를 막 열었을 때 곧 만료될 로그인 토큰이 가서 403이 날 수 있어요 → 토큰을 새로 받아 한 번만 다시
+  if (r.status === 403) {
+    const { data: fresh } = await sb.auth.refreshSession();
+    if (fresh.session) r = await ask(fresh.session);
+  }
+  return r;
 }
 
 // ---------- 관심 종목 ----------
