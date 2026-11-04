@@ -108,10 +108,23 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .panel-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
 
 /* 탭 */
-.tabs { display: flex; gap: 4px; margin: 0 0 14px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); width: fit-content; max-width: 100%; }
-.tabs { overflow-x: auto; scrollbar-width: none; }
-.tab { flex: none; white-space: nowrap; height: 36px; padding: 0 18px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-weight: 700; }
+/* 탭 9개를 옆으로 넘기지 않고 바둑판으로 모두 보여줌 (PC 5칸 · 태블릿 3칸 · 휴대폰은 선택 상자) */
+.tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: 0 0 14px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.tab { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 36px; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-weight: 700; }
+.tab:hover { color: var(--text); background: var(--surface-2); }
 .tab[aria-selected="true"] { background: var(--accent); color: #fff; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.view-select { display: none; position: relative; margin: 0 0 14px; }
+.view-select select { width: 100%; height: 46px; padding: 0 40px 0 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); font: inherit; font-size: 16px; font-weight: 700; appearance: none; -webkit-appearance: none; }
+.view-select select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.view-select::after { content: ""; position: absolute; right: 16px; top: 50%; width: 8px; height: 8px; margin-top: -6px; border: solid var(--accent); border-width: 0 2px 2px 0; transform: rotate(45deg); pointer-events: none; }
+@media (max-width: 900px) {
+  .tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .tabs { display: none; }
+  .view-select { display: block; }
+}
 .rank { display: inline-grid; place-items: center; min-width: 24px; height: 24px; margin-right: 6px; padding: 0 6px; border-radius: 7px; background: var(--surface-2); color: var(--accent); font: 700 13px "Space Grotesk", sans-serif; vertical-align: 2px; }
 
 .streak { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); font-size: 11px; font-weight: 700; vertical-align: 2px; white-space: nowrap; }
@@ -334,7 +347,6 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   .quote-grid, #briefing-indices, #kr-indices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .two-col, .three-col { grid-template-columns: 1fr; }
   .rank-list .cnt { display: none; }
-  .tab { padding: 0 12px; font-size: 13px; }
   .chart-box, .market-chart { height: 300px; }
   .detail { max-height: calc(100vh - 16px); }
   .detail-inner { padding: 14px; }

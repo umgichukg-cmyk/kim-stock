@@ -1037,13 +1037,7 @@ function showView(view) {
     $(`#view-${v}`).hidden = v !== view;
     $(`#tab-${v}`).setAttribute("aria-selected", v === view);
   }
-  // 휴대폰에서 탭 줄이 넘칠 때 선택한 탭이 보이게 탭 줄만 옆으로 밀기
-  setTimeout(() => {
-    const tab = $(`#tab-${view}`);
-    const bar = tab.parentElement;
-    const offset = tab.getBoundingClientRect().left - bar.getBoundingClientRect().left;
-    bar.scrollLeft += offset - (bar.clientWidth - tab.offsetWidth) / 2;
-  });
+  $("#view-select").value = view;
   if (view === "krlive") loadKrLive({ quiet: true });
   if (view === "top30") loadTop30();
   if (view === "limits") loadLimits();
@@ -1066,6 +1060,10 @@ document.querySelector(".tabs").addEventListener("click", (e) => {
   const tab = e.target.closest("[data-view]");
   if (tab) showView(tab.dataset.view);
 });
+
+// 휴대폰용 선택 상자: 탭 목록을 그대로 옮겨 담음
+$("#view-select").innerHTML = VIEWS.map((v) => `<option value="${v}">${$(`#tab-${v}`).textContent}</option>`).join("");
+$("#view-select").addEventListener("change", (e) => showView(e.target.value));
 
 // ---------- 상세 ----------
 

@@ -60,6 +60,11 @@
       <button class="tab" role="tab" id="tab-ipo" data-view="ipo" aria-selected="false">공모주 청약</button>
       <button class="tab" role="tab" id="tab-watch" data-view="watch" aria-selected="false">관심 종목</button>
     </nav>
+    <!-- 휴대폰에서는 탭 대신 선택 상자 (보기 목록은 위 탭에서 채움) -->
+    <label class="view-select">
+      <span class="sr-only">화면 선택</span>
+      <select id="view-select"></select>
+    </label>
 
     <section id="view-krlive">
       <div class="panel">
