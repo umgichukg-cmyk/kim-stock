@@ -65,4 +65,10 @@ jobs:
           git add -A
           git commit -q -m "전체 종목 점수 $(date -u +%Y-%m-%dT%H:%MZ)"
           # git 기록은 쌓지 않고 덮어쓰기 (날짜별 기록은 history.json·theme-history.json 안에 60거래일치 보관)
-          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" data
+          # GitHub 서버가 잠깐 저장을 거부하는 일이 있어(11/4 "fatal error in commit_refs") 30초 간격으로 5번까지 다시 시도
+          for i in 1 2 3 4 5; do
+            git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" data && exit 0
+            echo "저장 실패 ${i}번째, 30초 뒤 다시 시도"
+            sleep 30
+          done
+          exit 1
