@@ -113,11 +113,14 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .tab { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 36px; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-weight: 700; }
 .tab:hover { color: var(--text); background: var(--surface-2); }
 .tab[aria-selected="true"] { background: var(--accent); color: #fff; }
-.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.view-select { display: none; position: relative; margin: 0 0 14px; }
-.view-select select { width: 100%; height: 46px; padding: 0 40px 0 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); font: inherit; font-size: 16px; font-weight: 700; appearance: none; -webkit-appearance: none; }
-.view-select select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-.view-select::after { content: ""; position: absolute; right: 16px; top: 50%; width: 8px; height: 8px; margin-top: -6px; border: solid var(--accent); border-width: 0 2px 2px 0; transform: rotate(45deg); pointer-events: none; }
+/* 휴대폰 메뉴: 주황 바탕에 "☰ 메뉴" 표시와 동그란 화살표로 눌러서 고르는 메뉴처럼 보이게 */
+.view-select { display: none; position: relative; margin: 0 0 14px; border-radius: 14px; background: linear-gradient(135deg, var(--accent), #ff9a52); box-shadow: 0 6px 18px rgba(242, 107, 29, .35); }
+.view-select select { width: 100%; height: 56px; padding: 0 60px 0 92px; border: 0; border-radius: 14px; background: transparent; color: #fff; font: inherit; font-size: 18px; font-weight: 800; letter-spacing: -.2px; appearance: none; -webkit-appearance: none; cursor: pointer; }
+.view-select select:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
+.view-select select option { color: var(--text); background: var(--surface); font-weight: 600; }
+.view-select-tag { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 8px; background: rgba(0, 0, 0, .22); color: #fff; font-size: 13px; font-weight: 800; pointer-events: none; }
+.view-select-tag i { width: 13px; height: 2px; background: #fff; border-radius: 1px; box-shadow: 0 -4px 0 #fff, 0 4px 0 #fff; }
+.view-select::after { content: ""; position: absolute; right: 12px; top: 50%; width: 34px; height: 34px; margin-top: -17px; border-radius: 50%; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23f26b1d' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 18px no-repeat; pointer-events: none; }
 @media (max-width: 900px) {
   .tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
