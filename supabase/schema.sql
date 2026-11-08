@@ -10,6 +10,10 @@ create table if not exists public.watchlist (
   primary key (user_id, code)
 );
 
+-- 관심 종목에 넣은 순간의 종합 점수와 가격 (나중에 "등록 때 → 지금" 비교용, 2026-11 추가)
+alter table public.watchlist add column if not exists added_score smallint;
+alter table public.watchlist add column if not exists added_price numeric;
+
 create table if not exists public.memos (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,

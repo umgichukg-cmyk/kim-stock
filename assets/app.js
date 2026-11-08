@@ -1345,7 +1345,7 @@ async function openDetail(code) {
         <div class="detail-price"><span class="num">${won(s.price)}원</span><span class="num ${d}">${arrow(s.changePct)} ${won(Math.abs(s.change ?? 0))} (${pct(s.changePct)})</span></div>
       </div>
       <div class="head-actions">
-        <button class="watch-btn" id="watch-btn" type="button" data-code="${esc(s.code)}" data-name="${esc(s.name)}" aria-pressed="false">☆ 관심</button>
+        <button class="watch-btn" id="watch-btn" type="button" data-code="${esc(s.code)}" data-name="${esc(s.name)}" data-score="${s.score.total ?? ""}" data-price="${s.price ?? ""}" aria-pressed="false">☆ 관심</button>
         <button class="close-btn" data-close aria-label="닫기">×</button>
       </div>
     </div>
@@ -1930,7 +1930,11 @@ $("#detail").addEventListener("click", async (e) => {
     wb.disabled = true;
     try {
       if (on) await account.removeWatch(wb.dataset.code);
-      else await account.addWatch(wb.dataset.code, wb.dataset.name);
+      else {
+        // 등록하는 순간의 점수와 가격도 같이 저장 (나중에 관심 종목 카드에서 "등록 때 → 지금" 비교)
+        const n = (v) => (v === "" || v == null ? null : Number(v));
+        await account.addWatch(wb.dataset.code, wb.dataset.name, { score: n(wb.dataset.score), price: n(wb.dataset.price) });
+      }
       wb.textContent = on ? "☆ 관심" : "★ 관심";
       wb.setAttribute("aria-pressed", String(!on));
       watchLoaded = false;
@@ -2011,6 +2015,43 @@ $("#broker").addEventListener("click", (e) => {
   if (c) openDetail(c.dataset.code);
 });
 
+// 관심 종목 카드의 점수 변화 줄: 등록 때 → 지금, 직전 거래일 대비, 날짜별 점수 그래프
+// w: Supabase 관심 종목 행(created_at, added_score, added_price), p: /api/watch 결과(history 포함)
+function scoreTrail(w, p) {
+  const now = p.score.total;
+  const hist = p.history ?? [];
+  const p0 = kstParts(Date.now());
+  const today = `${p0.y}${String(p0.m + 1).padStart(2, "0")}${String(p0.d).padStart(2, "0")}`;
+  const ymdLabel = (ymd) => `${+ymd.slice(4, 6)}/${+ymd.slice(6, 8)}`;
+  const delta = (from) => {
+    if (now == null || from == null) return "";
+    const v = now - from;
+    return v ? ` <b class="${v > 0 ? "up" : "down"}">${v > 0 ? "▲" : "▼"}${Math.abs(v)}</b>` : ` <b>±0</b>`;
+  };
+  const parts = [];
+
+  // 등록 때 점수: 등록하며 저장한 값, 없으면(예전에 넣은 종목) 등록일 이후 첫 기록
+  const c = kstParts(new Date(w.created_at).getTime());
+  const addedDay = `${c.y}${String(c.m + 1).padStart(2, "0")}${String(c.d).padStart(2, "0")}`;
+  const firstAfter = hist.find(([d]) => d >= addedDay);
+  if (w.added_score != null) parts.push(`등록 ${ymdLabel(addedDay)} ${w.added_score}점 → 지금${delta(w.added_score)}`);
+  else if (firstAfter) parts.push(`등록 후 첫 기록 ${ymdLabel(firstAfter[0])} ${firstAfter[1]}점 → 지금${delta(firstAfter[1])}`);
+  if (w.added_price && p.price) {
+    const r = ((p.price - w.added_price) / w.added_price) * 100;
+    parts.push(`등록 후 주가 <b class="${dir(r)}">${pct(r, 1)}</b>`);
+  }
+
+  // 직전 거래일 점수: 오늘 날짜 기록(저녁 계산 뒤)은 지금 점수와 거의 같아서 그 전 기록과 비교
+  const prev = hist.filter(([d]) => d < today).at(-1);
+  if (prev) parts.push(`${ymdLabel(prev[0])} ${prev[1]}점 대비${delta(prev[1])}`);
+
+  if (!parts.length) return `<p class="card-hist">점수 기록은 오늘 저녁 자동 계산부터 쌓여요</p>`;
+  const points = hist.map(([, v]) => v);
+  if (now != null && !hist.some(([d]) => d === today)) points.push(now);
+  const graph = points.length >= 3 ? sparkline(points, { width: 120, height: 22, base: points[0] }) : "";
+  return `<div class="card-hist"><p>${parts.join(" · ")}</p>${graph ? graph.replace("<svg", '<svg class="card-hist-spark"') : ""}</div>`;
+}
+
 async function loadWatch() {
   if (watchLoaded) return;
   const box = $("#watch");
@@ -2026,7 +2067,7 @@ async function loadWatch() {
       watchLoaded = true;
       return;
     }
-    const data = await getJson(`/api/watch?codes=${list.map((w) => w.code).join(",")}`);
+    const data = await getJson(`/api/watch?codes=${list.map((w) => w.code).join(",")}&history=1`);
     const byCode = new Map(data.items.map((p) => [p.code, p]));
     box.innerHTML = list
       .map((w) => {
@@ -2036,7 +2077,7 @@ async function loadWatch() {
         const note = memo
           ? `<p class="card-memo">📝 ${esc(memo.latest.body.slice(0, 60))}${memo.latest.body.length > 60 ? "…" : ""}</p></button>`
           : "</button>";
-        return cardHtml(p, { extra: memo ? ` · 메모 ${memo.count}개` : "" }).replace(/<\/button>$/, note);
+        return cardHtml(p, { extra: memo ? ` · 메모 ${memo.count}개` : "" }).replace(/<\/button>$/, scoreTrail(w, p) + note);
       })
       .join("");
     $("#watch-sub").textContent = `${list.length}개 종목 · 최근 추가한 순서 · 로그인한 본인만 볼 수 있어요 · 시세 ${timeLabel(new Date(data.updatedAt))}`;

@@ -7,6 +7,7 @@
 // - 마지막으로 끝난 한국 장 기준: 장중에 실행하면 진행 중인 오늘 데이터는 뺌
 // - 점수는 화면과 같은 기준 (기술 45 + 수급 45 + 기본 10)
 // - 날짜별 상위 종목을 history 파일에 쌓아서, 거래일 기준 연속 상위 진입 일수(streak)를 계산
+// - 기준일에 거래된 전 종목의 종합 점수를 score-history 파일에 날짜별로 쌓음 (관심 종목 점수 변화 표시용)
 // GitHub Actions가 매일 장 마감 후 실행해서 data 브랜치에 결과를 올립니다.
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -37,6 +38,9 @@ const THEME_HISTORY = join(ROOT, args["theme-history"] || join(dirname(args.out 
 const THEME_BACKFILL_DAYS = 30; // 기록이 없는 과거 거래일은 관련 종목 일봉으로 채움
 // 테마를 처음 본 날 { 테마번호: 날짜 } (새로 생긴 테마 찾기용). 첫 기록 때 있던 테마는 "기존"으로 등록
 const THEME_CATALOG = join(ROOT, args["theme-catalog"] || join(dirname(args.out || "data/top30.json"), "theme-catalog.json"));
+// 전 종목 날짜별 종합 점수 { dates: [날짜...], scores: { 종목코드: [날짜 순서대로 점수 또는 null] } } (관심 종목 점수 변화 표시용)
+const SCORE_HISTORY = join(ROOT, args["score-history"] || join(dirname(args.out || "data/top30.json"), "score-history.json"));
+const SCORE_HISTORY_DAYS = 250; // 약 1년치 거래일
 const KNOWN_BEFORE = "00000000";
 const NEW_THEME_DAYS = 5; // 새 테마는 처음 본 날부터 이 거래일 동안 NEW 표시
 const TOP = Number(args.top ?? 30);
@@ -206,7 +210,13 @@ async function main() {
   ];
   const listedCodes = [...new Set(lists.flat().map((m) => m.code))];
   const missing = listedCodes.filter((c) => !scoreByCode.has(c)).map((c) => withCandles.find((s) => s.code === c)).filter(Boolean);
-  for (const r of await pool(missing, CONCURRENCY, scoreOne, "추가 점수")) if (!r.error) scoreByCode.set(r.code, r.score);
+  // 기준일 점수 기록용 (기준일에 거래된 종목만)
+  const dayScores = new Map(ranked.map((s) => [s.code, s.score.total]));
+  const keepDay = (r) => !r.error && r.date === basisDate && r.score.total != null && dayScores.set(r.code, r.score.total);
+  for (const r of await pool(missing, CONCURRENCY, scoreOne, "추가 점수")) {
+    if (!r.error) scoreByCode.set(r.code, r.score);
+    keepDay(r);
+  }
   for (const list of lists) {
     for (const m of list) {
       const sc = scoreByCode.get(m.code);
@@ -214,9 +224,17 @@ async function main() {
     }
   }
 
+  // 7) 전 종목 점수 기록: 거래대금이 적어 위에서 계산하지 않은 종목도 관심 종목일 수 있어서 모두 계산
+  const rest = okStocks.filter((s) => !scoreByCode.has(s.code) && s.candles.at(-1)?.date === basisDate);
+  for (const r of await pool(rest, CONCURRENCY, scoreOne, "나머지 점수")) keepDay(r);
+  const scoreHistory = await readFile(SCORE_HISTORY, "utf8").then(JSON.parse).catch(() => ({ dates: [], scores: {} }));
+  addScoreDay(scoreHistory, basisDate, dayScores);
+
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(result));
   await writeFile(HISTORY, JSON.stringify(history));
+  await writeFile(SCORE_HISTORY, JSON.stringify(scoreHistory));
+  console.log(`점수 기록: ${basisDate} ${dayScores.size}개 종목 (기록 ${scoreHistory.dates.length}일치)`);
   await writeFile(join(dirname(OUT), "kr-briefing.json"), JSON.stringify(briefing));
   console.log(`한국 시장 브리핑: ${briefing.summary.length}줄 · 업종 ${briefing.industries ? "포함" : "제외(장중 실행)"}`);
   if (krThemes) {
@@ -227,6 +245,27 @@ async function main() {
   console.log(`상위 ${TOP}: ${result.items.slice(0, 10).map((s) => `${s.name} ${s.score.total}`).join(", ")} ...`);
   console.log(`연속 진입: ${result.items.filter((s) => s.streak > 1).length}개 종목이 2일 이상 (기록 ${result.historyDays}일치)`);
   console.log(`저장: ${OUT}, ${HISTORY}`);
+}
+
+// 날짜별 점수 기록에 하루치 넣기. 같은 날짜를 다시 계산하면 그날 값만 덮어씀
+function addScoreDay(h, date, totals) {
+  if (!h.dates.includes(date)) {
+    h.dates.push(date);
+    h.dates.sort();
+    const i = h.dates.indexOf(date);
+    for (const arr of Object.values(h.scores)) arr.splice(i, 0, null);
+  }
+  const i = h.dates.indexOf(date);
+  for (const [code, total] of totals) (h.scores[code] ??= Array(h.dates.length).fill(null))[i] = total;
+  // 오래된 날짜는 빼고, 남은 기간에 점수가 하나도 없는 종목(상장폐지 등)은 지움
+  const drop = h.dates.length - SCORE_HISTORY_DAYS;
+  if (drop > 0) {
+    h.dates.splice(0, drop);
+    for (const [code, arr] of Object.entries(h.scores)) {
+      arr.splice(0, drop);
+      if (arr.every((v) => v == null)) delete h.scores[code];
+    }
+  }
 }
 
 // ---------- 한국 시장 브리핑 ----------

@@ -380,7 +380,13 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .memos li { padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
 .memo-body { margin: 0; white-space: pre-wrap; word-break: break-word; line-height: 1.55; }
 .memo-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px; color: var(--muted); font-size: 12px; }
-.card-memo { margin: 8px 0 0; padding: 6px 8px; border-radius: 8px; background: var(--surface-2); color: var(--muted); font-size: 12px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-hist { margin: 8px 0 0; padding: 6px 8px; border-radius: 8px; background: var(--surface-2); color: var(--muted); font-size: 12px; text-align: left; }
+.card-hist p { margin: 0; line-height: 1.5; }
+.card-hist b { color: var(--text); font-weight: 700; }
+.card-hist b.up { color: var(--up); }
+.card-hist b.down { color: var(--down); }
+.card-hist-spark { display: block; width: 100%; height: 22px; margin-top: 4px; }
+.card-memo {margin: 8px 0 0; padding: 6px 8px; border-radius: 8px; background: var(--surface-2); color: var(--muted); font-size: 12px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 640px) {
   .account-btn { padding: 0 10px; font-size: 12px; }
   .watch-btn { padding: 0 8px; font-size: 12px; }

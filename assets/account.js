@@ -93,9 +93,15 @@ export async function getBrokerBalance() {
 
 // ---------- 관심 종목 ----------
 
+// Supabase에 등록 때 점수 칸(added_score, added_price)을 아직 안 만들었으면 그 칸 없이 동작
+const missingColumn = (error) => /added_(score|price)/.test(error?.message ?? "");
+
 export async function listWatch() {
   const sb = await getClient();
-  return check(await sb.from("watchlist").select("code, name, created_at").order("created_at", { ascending: false }));
+  const order = { ascending: false };
+  const r = await sb.from("watchlist").select("code, name, created_at, added_score, added_price").order("created_at", order);
+  if (missingColumn(r.error)) return check(await sb.from("watchlist").select("code, name, created_at").order("created_at", order));
+  return check(r);
 }
 
 export async function isWatched(code) {
@@ -104,9 +110,13 @@ export async function isWatched(code) {
   return rows.length > 0;
 }
 
-export async function addWatch(code, name) {
+// score, price: 등록하는 순간의 종합 점수와 가격 (모르면 null)
+export async function addWatch(code, name, { score = null, price = null } = {}) {
   const sb = await getClient();
-  check(await sb.from("watchlist").upsert({ code, name }, { onConflict: "user_id,code" }));
+  const opts = { onConflict: "user_id,code" };
+  const r = await sb.from("watchlist").upsert({ code, name, added_score: score, added_price: price }, opts);
+  if (missingColumn(r.error)) return check(await sb.from("watchlist").upsert({ code, name }, opts));
+  check(r);
 }
 
 export async function removeWatch(code) {

@@ -41,6 +41,8 @@ jobs:
             git show FETCH_HEAD:theme-catalog.json > out/theme-catalog.json || rm -f out/theme-catalog.json
             # 장중 실행이라 테마를 새로 못 만들면 이전 결과를 그대로 둠
             git show FETCH_HEAD:kr-themes.json > out/kr-themes.json || rm -f out/kr-themes.json
+            # 전 종목 날짜별 점수 (관심 종목 점수 변화 표시용). 없으면 이번 실행이 첫 기록
+            git show FETCH_HEAD:score-history.json > out/score-history.json || rm -f out/score-history.json
           else
             echo '{}' > out/history.json
             echo '{}' > out/theme-history.json
@@ -49,7 +51,7 @@ jobs:
           echo "테마 기록 날짜 수: $(node -e "console.log(Object.keys(require('./out/theme-history.json')).length)")"
 
       - name: 전체 종목 점수 계산
-        run: node scripts/scan-market.js --out out/top30.json --history out/history.json --theme-history out/theme-history.json --theme-catalog out/theme-catalog.json
+        run: node scripts/scan-market.js --out out/top30.json --history out/history.json --theme-history out/theme-history.json --theme-catalog out/theme-catalog.json --score-history out/score-history.json
 
       - name: data 브랜치에 결과 저장
         env:
