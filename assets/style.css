@@ -446,3 +446,29 @@ button.live-index:hover { border-color: var(--accent); transform: translateY(-2p
 @media (max-width: 640px) {
   .panel-head > div:first-child:has(.update-line) { flex-basis: 100%; } /* 휴대폰은 배지를 아래 줄로 */
 }
+
+/* 점수 흐름 (상세 화면) */
+.trend-stats { margin: 0 0 10px; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.trend-box { overflow: hidden; border-radius: 10px; background: var(--surface-2); }
+.trend-svg { display: block; }
+.trend-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.trend-dot { fill: var(--accent); }
+.trend-live { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+.trend-grid { stroke: var(--border); stroke-dasharray: 3 3; }
+.trend-added { stroke: var(--accent); stroke-dasharray: 2 3; opacity: .7; }
+.trend-axis { fill: var(--muted); font-size: 11px; }
+.trend-axis.accent { fill: var(--accent); font-weight: 700; }
+.trend-table { margin-top: 8px; font-size: 13px; }
+.trend-table summary { cursor: pointer; color: var(--muted); padding: 4px 0; }
+.trend-table table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+.trend-table th, .trend-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: right; }
+.trend-table th:first-child, .trend-table td:first-child { text-align: left; }
+.trend-table th { color: var(--muted); font-weight: 600; font-size: 12px; }
+#detail-title .ring { cursor: pointer; }
+#score-trend-title { flex-wrap: wrap; }
+#score-trend-title > span { white-space: nowrap; }
+@media (max-width: 640px) {
+  .trend-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #trend-chips { width: 100%; flex-wrap: nowrap; }
+  #trend-chips .chip { flex: 1; padding-left: 0; padding-right: 0; }
+}

@@ -1318,6 +1318,112 @@ function setRange(days, total) {
   chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, total - days), to: total + 2 });
 }
 
+// ---------- 점수 흐름 (상세 화면) ----------
+// 저녁 자동 계산이 거래일마다 남긴 종합 점수를 기간별 꺾은선으로. 기간은 거래일 수
+const TREND_RANGES = [10, 30, 90, 180, 240];
+const kstYmd = (ms) => {
+  const p = kstParts(ms);
+  return `${p.y}${String(p.m + 1).padStart(2, "0")}${String(p.d).padStart(2, "0")}`;
+};
+const ymdShort = (ymd) => `${+ymd.slice(4, 6)}/${+ymd.slice(6, 8)}`;
+
+async function loadScoreTrend(s) {
+  const box = $("#score-trend");
+  const [data, watch] = await Promise.all([
+    getJson(`/api/score-history?code=${encodeURIComponent(s.code)}`).catch((e) => ({ error: e.message })),
+    account.currentUser() ? account.getWatch(s.code).catch(() => null) : null,
+  ]);
+  if (!box.isConnected || $("#memo-section")?.dataset.code !== s.code) return; // 그사이 다른 종목을 열었으면 무시
+  if (data.error) {
+    box.innerHTML = `<div class="state">점수 기록을 불러오지 못했어요.<br><small>${esc(data.error)}</small></div>`;
+    return;
+  }
+  const points = data.history.map(([d, v]) => ({ d, v }));
+  // 저녁 계산 뒤에 새 거래일 데이터가 생겼으면(장중 등) 지금 점수를 마지막 점으로
+  const lastCandle = s.candles.at(-1)?.date;
+  if (s.score.total != null && lastCandle && lastCandle > (points.at(-1)?.d ?? "")) points.push({ d: lastCandle, v: s.score.total, live: true });
+  const added = watch ? { d: kstYmd(new Date(watch.created_at).getTime()), v: watch.added_score ?? null } : null;
+
+  const show = (n) => {
+    for (const b of $("#trend-chips").children) b.setAttribute("aria-selected", String(Number(b.dataset.trend) === n));
+    box.innerHTML = scoreTrendHtml(points.slice(-n), n, added, box.clientWidth || 340);
+  };
+  $("#trend-chips").onclick = (e) => {
+    const b = e.target.closest("[data-trend]");
+    if (b) show(Number(b.dataset.trend));
+  };
+  show(30);
+}
+
+function scoreTrendHtml(pts, n, added, width) {
+  if (!pts.some((p) => !p.live)) return `<div class="state">아직 점수 기록이 없어요.<br><small>평일 저녁 자동 계산 때마다 거래일 하루에 한 칸씩 쌓여요.</small></div>`;
+  const vals = pts.map((p) => p.v);
+  const hi = Math.max(...vals);
+  const lo = Math.min(...vals);
+  const avgV = vals.reduce((a, b) => a + b, 0) / vals.length;
+
+  // 그래프: 점수 범위에 여유를 두고, 등급 기준선(75 강함·60 양호·45 보통)은 범위 안에 있을 때만
+  const H = 180;
+  const pad = { l: 28, r: 12, t: 12, b: 22 };
+  const yMin = Math.max(0, Math.floor((lo - 8) / 5) * 5);
+  const yMax = Math.min(100, Math.ceil((hi + 8) / 5) * 5);
+  const x = (i) => pad.l + (pts.length === 1 ? (width - pad.l - pad.r) / 2 : (i / (pts.length - 1)) * (width - pad.l - pad.r));
+  const y = (v) => pad.t + (1 - (v - yMin) / (yMax - yMin || 1)) * (H - pad.t - pad.b);
+  const grid = [
+    [75, "강함"],
+    [60, "양호"],
+    [45, "보통"],
+  ]
+    .filter(([v]) => v > yMin && v < yMax)
+    .map(([v, label]) => `<line x1="${pad.l}" x2="${width - pad.r}" y1="${y(v)}" y2="${y(v)}" class="trend-grid"/><text x="${pad.l - 4}" y="${y(v) + 4}" text-anchor="end" class="trend-axis">${v}</text><text x="${width - pad.r}" y="${y(v) - 3}" text-anchor="end" class="trend-axis">${label}</text>`)
+    .join("");
+  const line = pts.map((p, i) => `${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
+  const dots = pts.length <= 30 ? pts.map((p, i) => `<circle cx="${x(i)}" cy="${y(p.v)}" r="${p.live ? 4 : 2.5}" class="${p.live ? "trend-live" : "trend-dot"}"/>`).join("") : "";
+  // 관심 종목에 넣은 날: 그날(또는 그 뒤 첫 거래일) 위치에 세로 점선
+  const ai = added ? pts.findIndex((p) => p.d >= added.d) : -1;
+  const addedMark =
+    ai >= 0 && !(ai === 0 && added.d < pts[0].d)
+      ? `<line x1="${x(ai)}" x2="${x(ai)}" y1="${pad.t}" y2="${H - pad.b}" class="trend-added"/><text x="${x(ai) + 4}" y="${pad.t + 10}" class="trend-axis accent">등록</text>`
+      : "";
+  const svg = `<svg class="trend-svg" width="${width}" height="${H}" viewBox="0 0 ${width} ${H}" role="img" aria-label="최근 ${pts.length}거래일 종합 점수">
+    ${grid}${addedMark}
+    <polyline points="${line}" class="trend-line"/>${dots}
+    <text x="${pad.l}" y="${H - 6}" class="trend-axis">${ymdShort(pts[0].d)}</text>
+    <text x="${width - pad.r}" y="${H - 6}" text-anchor="end" class="trend-axis">${pts.at(-1).live ? "지금" : ymdShort(pts.at(-1).d)}</text>
+  </svg>`;
+
+  const first = pts[0];
+  const last = pts.at(-1);
+  const change = last.v - first.v;
+  const at = (v) => pts.filter((p) => p.v === v).at(-1);
+  const note =
+    pts.length < n
+      ? `<p class="sub">기록이 아직 ${pts.length}거래일치라 ${n}일 대신 있는 만큼 보여 줘요.${pts.some((p) => p.live) ? " 마지막 점은 지금 점수예요." : ""}</p>`
+      : pts.some((p) => p.live)
+        ? `<p class="sub">마지막 점(속이 빈 점)은 아직 저녁 계산 전인 지금 점수예요.</p>`
+        : "";
+  const rows = [...pts]
+    .reverse()
+    .map((p, i, arr) => {
+      const prev = arr[i + 1];
+      const dv = prev ? p.v - prev.v : null;
+      return `<tr><td>${p.live ? "지금" : `${ymdShort(p.d)}(${WEEKDAY[new Date(dayUtc(p.d)).getUTCDay()]})`}</td><td class="num">${p.v}</td><td class="num ${dv ? (dv > 0 ? "up" : "down") : ""}">${dv == null ? "" : dv ? `${dv > 0 ? "▲" : "▼"}${Math.abs(dv)}` : "-"}</td></tr>`;
+    })
+    .join("");
+  return `<div class="stats trend-stats">
+      ${statBox("기간 변화", `${change > 0 ? "▲" : change < 0 ? "▼" : ""}${Math.abs(change)}점`, change ? (change > 0 ? "up" : "down") : "")}
+      ${statBox("최고", `${hi}점 · ${ymdShort(at(hi).d)}`)}
+      ${statBox("최저", `${lo}점 · ${ymdShort(at(lo).d)}`)}
+      ${statBox("평균", `${avgV.toFixed(1)}점`)}
+      ${added?.v != null ? statBox("등록 때", `${added.v}점 · ${ymdShort(added.d)}`) : ""}
+    </div>
+    <div class="trend-box">${svg}</div>
+    ${note}
+    <details class="trend-table"><summary>날짜별 점수 보기 (${pts.length}거래일)</summary>
+      <table><thead><tr><th>날짜</th><th>점수</th><th>전일 대비</th></tr></thead><tbody>${rows}</tbody></table>
+    </details>`;
+}
+
 async function openDetail(code) {
   const dlg = $("#detail");
   const body = $("#detail-body");
@@ -1379,6 +1485,11 @@ async function openDetail(code) {
     <div class="section-title"><span>내 메모</span><span class="sub">로그인한 본인만 볼 수 있어요</span></div>
     <div id="memo-section" data-code="${esc(s.code)}" data-name="${esc(s.name)}"></div>
 
+    <div class="section-title" id="score-trend-title"><span>점수 흐름</span>
+      <div class="chips" id="trend-chips">${TREND_RANGES.map((n) => `<button class="chip" data-trend="${n}" aria-selected="${n === 30}">${n}일</button>`).join("")}</div>
+    </div>
+    <div id="score-trend"><div class="skeleton" style="height:180px"></div></div>
+
     <div class="section-title"><span>점수 근거 · ${s.score.total == null ? "종합 점수 없음" : `종합 ${s.score.total}점`}</span>${
       s.score.total == null
         ? `<span class="sub">계산할 수 있는 항목이 100점 중 ${s.score.available}점뿐이라 종합 점수를 내지 않았어요</span>`
@@ -1396,6 +1507,7 @@ async function openDetail(code) {
 
   loadNews(code);
   renderAccountTools();
+  loadScoreTrend(s);
   renderFlows(s.flows, 20);
   $("#flow-section").addEventListener("click", (e) => {
     const btn = e.target.closest("[data-days]");
@@ -1667,6 +1779,8 @@ document.addEventListener("click", (e) => {
 // 바깥 클릭으로 닫기
 $("#detail").addEventListener("click", (e) => {
   if (e.target === e.currentTarget) e.currentTarget.close();
+  // 머리의 점수 동그라미를 누르면 점수 흐름 그래프로
+  if (e.target.closest("#detail-title .ring")) $("#score-trend-title")?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 $("#detail").addEventListener("close", () => {
   if (chart) chart.remove();
@@ -2020,9 +2134,8 @@ $("#broker").addEventListener("click", (e) => {
 function scoreTrail(w, p) {
   const now = p.score.total;
   const hist = p.history ?? [];
-  const p0 = kstParts(Date.now());
-  const today = `${p0.y}${String(p0.m + 1).padStart(2, "0")}${String(p0.d).padStart(2, "0")}`;
-  const ymdLabel = (ymd) => `${+ymd.slice(4, 6)}/${+ymd.slice(6, 8)}`;
+  const today = kstYmd(Date.now());
+  const ymdLabel = ymdShort;
   const delta = (from) => {
     if (now == null || from == null) return "";
     const v = now - from;
@@ -2031,8 +2144,7 @@ function scoreTrail(w, p) {
   const parts = [];
 
   // 등록 때 점수: 등록하며 저장한 값, 없으면(예전에 넣은 종목) 등록일 이후 첫 기록
-  const c = kstParts(new Date(w.created_at).getTime());
-  const addedDay = `${c.y}${String(c.m + 1).padStart(2, "0")}${String(c.d).padStart(2, "0")}`;
+  const addedDay = kstYmd(new Date(w.created_at).getTime());
   const firstAfter = hist.find(([d]) => d >= addedDay);
   if (w.added_score != null) parts.push(`등록 ${ymdLabel(addedDay)} ${w.added_score}점 → 지금${delta(w.added_score)}`);
   else if (firstAfter) parts.push(`등록 후 첫 기록 ${ymdLabel(firstAfter[0])} ${firstAfter[1]}점 → 지금${delta(firstAfter[1])}`);

@@ -22,3 +22,18 @@ export async function readDataFile(name) {
     throw e;
   }
 }
+
+// 전 종목 날짜별 종합 점수 기록 (scan-market.js가 만듦). 하루 한 번 바뀌고 크기가 커서 5분 동안 메모리에 둠
+let scoreHistoryCache = { at: 0, data: null };
+export async function readScoreHistory() {
+  if (Date.now() - scoreHistoryCache.at > 300_000) {
+    scoreHistoryCache = { at: Date.now(), data: await readDataFile("score-history.json").catch(() => null) };
+  }
+  return scoreHistoryCache.data;
+}
+
+// 한 종목의 기록 [[날짜, 점수], ...] (점수가 없는 날은 뺌)
+export function scoreHistoryOf(h, code) {
+  const arr = h?.scores?.[code];
+  return arr ? h.dates.map((d, i) => [d, arr[i]]).filter(([, v]) => v != null) : [];
+}

@@ -104,6 +104,14 @@ export async function listWatch() {
   return check(r);
 }
 
+// 관심 종목 한 줄 (등록 시각·등록 때 점수). 관심 종목이 아니면 null
+export async function getWatch(code) {
+  const sb = await getClient();
+  const r = await sb.from("watchlist").select("code, created_at, added_score, added_price").eq("code", code);
+  if (missingColumn(r.error)) return check(await sb.from("watchlist").select("code, created_at").eq("code", code))[0] ?? null;
+  return check(r)[0] ?? null;
+}
+
 export async function isWatched(code) {
   const sb = await getClient();
   const rows = check(await sb.from("watchlist").select("code").eq("code", code));

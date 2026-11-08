@@ -11,6 +11,7 @@ import krThemes from "./_routes/kr-themes.js";
 import market from "./_routes/market.js";
 import news from "./_routes/news.js";
 import picks from "./_routes/picks.js";
+import scoreHistory from "./_routes/score-history.js";
 import search from "./_routes/search.js";
 import stock from "./_routes/stock.js";
 import top30 from "./_routes/top30.js";
@@ -28,6 +29,7 @@ const ROUTES = {
   market,
   news,
   picks,
+  "score-history": scoreHistory,
   search,
   stock,
   top30,

@@ -40,7 +40,7 @@ const THEME_BACKFILL_DAYS = 30; // 기록이 없는 과거 거래일은 관련 �
 const THEME_CATALOG = join(ROOT, args["theme-catalog"] || join(dirname(args.out || "data/top30.json"), "theme-catalog.json"));
 // 전 종목 날짜별 종합 점수 { dates: [날짜...], scores: { 종목코드: [날짜 순서대로 점수 또는 null] } } (관심 종목 점수 변화 표시용)
 const SCORE_HISTORY = join(ROOT, args["score-history"] || join(dirname(args.out || "data/top30.json"), "score-history.json"));
-const SCORE_HISTORY_DAYS = 250; // 약 1년치 거래일
+const SCORE_HISTORY_DAYS = 500; // 약 2년치 거래일 (1년에 약 245~250거래일)
 const KNOWN_BEFORE = "00000000";
 const NEW_THEME_DAYS = 5; // 새 테마는 처음 본 날부터 이 거래일 동안 NEW 표시
 const TOP = Number(args.top ?? 30);
