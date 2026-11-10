@@ -272,7 +272,7 @@ function renderFilter() {
 }
 
 // 종목 카드 (테마 탭·상위 30 탭 공통)
-function cardHtml(p, { tag = null, rank = null, extra = "", streak = null } = {}) {
+function cardHtml(p, { tag = null, rank = null, extra = "", streak = null, badge = "" } = {}) {
   const d = dir(p.changePct);
   const change = p.change != null ? `${won(Math.abs(p.change))} ` : "";
   const streakBadge = streak
@@ -281,7 +281,7 @@ function cardHtml(p, { tag = null, rank = null, extra = "", streak = null } = {}
   return `<button class="card" data-code="${esc(p.code)}">
     <div class="card-top">
       <div>
-        <div class="card-name">${rank ? `<span class="rank">${rank}</span>` : ""}${esc(p.name)}${streakBadge}</div>
+        <div class="card-name">${rank ? `<span class="rank">${rank}</span>` : ""}${esc(p.name)}${streakBadge}${badge}</div>
         <div class="card-meta">${esc(p.code)} · ${esc(p.market)}${tag ? ` · <span class="tag">${esc(tag)}</span>` : ""}${extra}</div>
       </div>
       ${ring(p.score.total, p.score.grade)}
@@ -2267,16 +2267,53 @@ async function loadWatch() {
         const note = memo
           ? `<p class="card-memo">📝 ${esc(memo.latest.body.slice(0, 60))}${memo.latest.body.length > 60 ? "…" : ""}</p></button>`
           : "</button>";
-        const extra = (autoCodes.has(w.code) ? ` · 자동 등록` : "") + (memo ? ` · 메모 ${memo.count}개` : "");
-        return cardHtml(p, { extra }).replace(/<\/button>$/, scoreTrail(w, p) + note);
+        const auto = autoCodes.has(w.code);
+        const badge = auto
+          ? ` <span class="tbadge src-auto" title="상위 30 중 85점 이상이라 자동으로 넣은 종목">자동</span>`
+          : ` <span class="tbadge src-mine" title="직접 넣은 종목">직접</span>`;
+        return cardHtml(p, { extra: memo ? ` · 메모 ${memo.count}개` : "", badge })
+          .replace('<button class="card"', `<button class="card" data-src="${auto ? "auto" : "mine"}"`)
+          .replace(/<\/button>$/, scoreTrail(w, p) + note);
       })
       .join("");
+    renderWatchFilter(list.length, list.filter((w) => autoCodes.has(w.code)).length);
     $("#watch-sub").textContent = `${list.length}개 종목 · 최근 추가한 순서 · 로그인한 본인만 볼 수 있어요 · 시세 ${timeLabel(new Date(data.updatedAt))}`;
     watchLoaded = true;
   } catch (e) {
     box.innerHTML = `<div class="state">불러오지 못했어요.<br><small>${esc(e.message)}</small><br><button type="button" data-watch-retry>다시 시도</button></div>`;
   }
 }
+
+// 관심 종목 거르기: 전체 · 직접 · 자동 (고른 값은 이 기기에 기억)
+const WATCH_FILTERS = [["all", "전체"], ["mine", "직접"], ["auto", "자동"]];
+let watchFilter = (() => {
+  try {
+    return localStorage.getItem("kimga-watch-filter") || "all";
+  } catch {
+    return "all";
+  }
+})();
+function renderWatchFilter(total, nAuto) {
+  const box = $("#watch-filter");
+  const counts = { all: total, mine: total - nAuto, auto: nAuto };
+  box.hidden = !nAuto; // 자동 등록 종목이 없으면 거를 필요 없음
+  if (box.hidden) watchFilter = "all";
+  box.innerHTML = WATCH_FILTERS.map(([k, label]) => `<button type="button" class="chip" data-filter="${k}" aria-selected="${k === watchFilter}">${label} ${counts[k]}</button>`).join("");
+  applyWatchFilter();
+}
+function applyWatchFilter() {
+  for (const c of $("#watch").querySelectorAll(".card[data-src]")) c.hidden = watchFilter !== "all" && c.dataset.src !== watchFilter;
+}
+$("#watch-filter").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-filter]");
+  if (!b) return;
+  watchFilter = b.dataset.filter;
+  try {
+    localStorage.setItem("kimga-watch-filter", watchFilter);
+  } catch {}
+  for (const x of $("#watch-filter").children) x.setAttribute("aria-selected", String(x === b));
+  applyWatchFilter();
+});
 
 $("#view-watch").addEventListener("click", (e) => {
   if (e.target.closest("[data-login-open]")) return openLogin();
