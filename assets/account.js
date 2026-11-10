@@ -132,6 +132,17 @@ export async function removeWatch(code) {
   check(await sb.from("watchlist").delete().eq("code", code));
 }
 
+// 상위 30 중 85점 이상 자동 등록 설정 (로그인 계정 정보에 저장해서 어느 기기에서나 같음)
+// { on, date: 마지막으로 처리한 기준일, prev: 그날 85점 이상 종목, codes: 자동으로 넣은 종목 }
+export const getAutoWatch = () => user?.user_metadata?.autoWatch ?? { on: false };
+
+export async function setAutoWatch(value) {
+  const sb = await getClient();
+  const { data, error } = await sb.auth.updateUser({ data: { autoWatch: value } });
+  if (error) throw new Error(error.message);
+  user = data.user ?? user;
+}
+
 // ---------- 종목 메모 ----------
 
 export async function listMemos(code) {

@@ -472,3 +472,9 @@ button.live-index:hover { border-color: var(--accent); transform: translateY(-2p
   #trend-chips { width: 100%; flex-wrap: nowrap; }
   #trend-chips .chip { flex: 1; padding-left: 0; padding-right: 0; }
 }
+
+/* 관심 종목: 85점 이상 자동 등록 스위치와 알림 */
+.auto-watch { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); cursor: pointer; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; }
+.auto-watch input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.auto-watch:has(input:checked) { color: var(--text); border-color: var(--accent); }
+.auto-watch-note { margin: 0 0 14px; padding: 10px 14px; border-radius: 10px; font-size: 13px; background: var(--accent-soft); }

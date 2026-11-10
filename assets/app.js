@@ -1946,6 +1946,8 @@ $("#login").addEventListener("click", (e) => {
 // 로그인 상태가 바뀌면 열려 있는 화면을 다시 그림
 account.onUserChange(() => {
   renderAccountBtn();
+  renderAutoWatchToggle();
+  runAutoWatch();
   watchLoaded = false;
   if (!$("#view-watch").hidden) {
     loadWatch();
@@ -2049,6 +2051,7 @@ $("#detail").addEventListener("click", async (e) => {
         const n = (v) => (v === "" || v == null ? null : Number(v));
         await account.addWatch(wb.dataset.code, wb.dataset.name, { score: n(wb.dataset.score), price: n(wb.dataset.price) });
       }
+      forgetAutoWatch(wb.dataset.code);
       wb.textContent = on ? "☆ 관심" : "★ 관심";
       wb.setAttribute("aria-pressed", String(!on));
       watchLoaded = false;
@@ -2062,6 +2065,76 @@ $("#detail").addEventListener("click", async (e) => {
 
 // 관심 종목 탭
 let watchLoaded = false;
+
+// 상위 30 중 85점 이상 자동 등록: 앱을 열 때 새 기준일이면 한 번만 처리
+// 전날(마지막 처리일)에도 85점 이상이던 종목은 건너뜀 → 직접 뺀 종목은 85점 아래로 떨어졌다가 다시 오를 때만 다시 들어옴
+const AUTO_WATCH_MIN = 85;
+let autoWatchRun = null;
+function syncAutoWatch() {
+  autoWatchRun ??= (async () => {
+    const cfg = account.getAutoWatch();
+    if (!account.currentUser() || !cfg.on) return [];
+    const top = await getJson("/api/top30");
+    if (cfg.date && top.basisDate <= cfg.date) return [];
+    const hits = top.items.filter((x) => x.score?.total >= AUTO_WATCH_MIN);
+    const prev = new Set(cfg.prev ?? []);
+    const watched = new Set((await account.listWatch()).map((w) => w.code));
+    const added = [];
+    for (const x of hits) {
+      if (prev.has(x.code) || watched.has(x.code)) continue;
+      await account.addWatch(x.code, x.name, { score: x.score.total, price: x.price });
+      added.push(x);
+    }
+    const codes = [...new Set([...(cfg.codes ?? []), ...added.map((x) => x.code)])].slice(-300);
+    await account.setAutoWatch({ ...cfg, date: top.basisDate, prev: hits.map((x) => x.code), codes });
+    if (added.length) watchLoaded = false;
+    return added;
+  })().finally(() => (autoWatchRun = null));
+  return autoWatchRun;
+}
+
+// 직접 관심 버튼을 누르면 그 종목은 "자동" 표시에서 뺌
+async function forgetAutoWatch(code) {
+  const cfg = account.getAutoWatch();
+  if (!cfg.codes?.includes(code)) return;
+  await account.setAutoWatch({ ...cfg, codes: cfg.codes.filter((c) => c !== code) }).catch(() => {});
+}
+
+function renderAutoWatchToggle() {
+  const box = $("#auto-watch");
+  box.hidden = !account.currentUser();
+  box.querySelector("input").checked = !!account.getAutoWatch().on;
+}
+
+$("#auto-watch input").addEventListener("change", async (e) => {
+  const input = e.target;
+  input.disabled = true;
+  try {
+    const cfg = account.getAutoWatch();
+    // 켤 때는 처리 기준일을 지워서 지금 85점 이상인 종목부터 바로 넣음
+    await account.setAutoWatch(input.checked ? { ...cfg, on: true, date: null, prev: [] } : { ...cfg, on: false });
+    if (input.checked) await runAutoWatch();
+  } catch (err) {
+    input.checked = !input.checked;
+    alert(`설정을 저장하지 못했어요: ${err.message}`);
+  } finally {
+    input.disabled = false;
+  }
+});
+
+// 자동 등록을 돌리고, 새로 넣은 종목이 있으면 관심 종목 화면 위에 알림
+async function runAutoWatch() {
+  try {
+    const added = await syncAutoWatch();
+    if (!added.length) return;
+    const note = $("#auto-watch-note");
+    note.innerHTML = `점수 ${AUTO_WATCH_MIN}점 이상이라 자동으로 넣었어요: ${added.map((x) => `<b>${esc(x.name)}</b> ${x.score.total}점`).join(", ")}`;
+    note.hidden = false;
+    if (!$("#view-watch").hidden) loadWatch();
+  } catch (err) {
+    console.warn("자동 등록 실패", err);
+  }
+}
 
 // 내 키움 계좌 (계좌 주인 계정에서만 보임, 조회 전용)
 async function loadBroker() {
@@ -2179,8 +2252,13 @@ async function loadWatch() {
       watchLoaded = true;
       return;
     }
-    const data = await getJson(`/api/watch?codes=${list.map((w) => w.code).join(",")}&history=1`);
+    // 시세 API는 한 번에 40개까지라 나눠서 요청
+    const chunks = [];
+    for (let i = 0; i < list.length; i += 40) chunks.push(list.slice(i, i + 40).map((w) => w.code).join(","));
+    const parts = await Promise.all(chunks.map((c) => getJson(`/api/watch?codes=${c}&history=1`)));
+    const data = { updatedAt: parts[0].updatedAt, items: parts.flatMap((d) => d.items) };
     const byCode = new Map(data.items.map((p) => [p.code, p]));
+    const autoCodes = new Set(account.getAutoWatch().codes ?? []);
     box.innerHTML = list
       .map((w) => {
         const p = byCode.get(w.code);
@@ -2189,7 +2267,8 @@ async function loadWatch() {
         const note = memo
           ? `<p class="card-memo">📝 ${esc(memo.latest.body.slice(0, 60))}${memo.latest.body.length > 60 ? "…" : ""}</p></button>`
           : "</button>";
-        return cardHtml(p, { extra: memo ? ` · 메모 ${memo.count}개` : "" }).replace(/<\/button>$/, scoreTrail(w, p) + note);
+        const extra = (autoCodes.has(w.code) ? ` · 자동 등록` : "") + (memo ? ` · 메모 ${memo.count}개` : "");
+        return cardHtml(p, { extra }).replace(/<\/button>$/, scoreTrail(w, p) + note);
       })
       .join("");
     $("#watch-sub").textContent = `${list.length}개 종목 · 최근 추가한 순서 · 로그인한 본인만 볼 수 있어요 · 시세 ${timeLabel(new Date(data.updatedAt))}`;
@@ -2210,7 +2289,9 @@ account
   .catch(() => null)
   .finally(() => {
     renderAccountBtn();
+    renderAutoWatchToggle();
     if (!$("#view-watch").hidden) loadWatch();
+    runAutoWatch();
   });
 
 load();
