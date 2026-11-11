@@ -2276,7 +2276,11 @@ async function loadWatch() {
           .replace(/<\/button>$/, scoreTrail(w, p) + note);
       })
       .join("");
-    renderWatchFilter(list.length, list.filter((w) => autoCodes.has(w.code)).length);
+    // 처음 쓰는 날은 오늘 넣은 종목을 뺀 개수를 비교 기준으로 (뺀 종목은 알 수 없음)
+    const today = kstYmd(Date.now());
+    const before = list.filter((w) => kstYmd(new Date(w.created_at).getTime()) < today);
+    const nb = before.filter((w) => autoCodes.has(w.code)).length;
+    renderWatchFilter(list.length, list.filter((w) => autoCodes.has(w.code)).length, { all: before.length, mine: before.length - nb, auto: nb });
     $("#watch-sub").textContent = `${list.length}개 종목 · 최근 추가한 순서 · 로그인한 본인만 볼 수 있어요 · 시세 ${timeLabel(new Date(data.updatedAt))}`;
     watchLoaded = true;
   } catch (e) {
@@ -2293,13 +2297,31 @@ let watchFilter = (() => {
     return "all";
   }
 })();
-function renderWatchFilter(total, nAuto) {
+function renderWatchFilter(total, nAuto, guess) {
   const box = $("#watch-filter");
   const counts = { all: total, mine: total - nAuto, auto: nAuto };
-  box.hidden = !nAuto; // 자동 등록 종목이 없으면 거를 필요 없음
-  if (box.hidden) watchFilter = "all";
-  box.innerHTML = WATCH_FILTERS.map(([k, label]) => `<button type="button" class="chip" data-filter="${k}" aria-selected="${k === watchFilter}">${label} ${counts[k]}</button>`).join("");
+  const { prev, prevDate } = trackWatchCounts(counts, guess);
+  const diff = (k) => {
+    const v = prev ? counts[k] - (prev[k] ?? 0) : 0;
+    return v ? ` <b class="${v > 0 ? "up" : "down"}">${v > 0 ? "+" : "−"}${Math.abs(v)}</b>` : "";
+  };
+  box.hidden = false;
+  box.innerHTML =
+    WATCH_FILTERS.map(([k, label]) => `<button type="button" class="chip" data-filter="${k}" aria-selected="${k === watchFilter}">${label} ${counts[k]}${diff(k)}</button>`).join("") +
+    (prev ? `<span class="watch-filter-since">${/^\d{8}$/.test(prevDate ?? "") ? ymdShort(prevDate) : "어제"} 대비</span>` : "");
   applyWatchFilter();
+}
+
+// 날짜가 바뀌면 전날까지의 마지막 개수를 "비교 기준"으로 넘기고, 같은 날이면 지금 개수만 갱신 (계정에 저장해서 기기마다 같음)
+function trackWatchCounts(counts, guess) {
+  const today = kstYmd(Date.now());
+  const saved = account.getWatchCounts();
+  const next =
+    !saved || saved.date === today
+      ? { date: today, now: counts, prevDate: saved ? saved.prevDate : "어제", prev: saved ? saved.prev : guess }
+      : { date: today, now: counts, prevDate: saved.date, prev: saved.now };
+  if (JSON.stringify(next) !== JSON.stringify(saved)) account.setWatchCounts(next).catch(() => {});
+  return next;
 }
 function applyWatchFilter() {
   for (const c of $("#watch").querySelectorAll(".card[data-src]")) c.hidden = watchFilter !== "all" && c.dataset.src !== watchFilter;

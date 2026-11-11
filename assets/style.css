@@ -486,3 +486,7 @@ button.live-index:hover { border-color: var(--accent); transform: translateY(-2p
 .tbadge.src-mine { border: 1px solid var(--border); color: var(--muted); }
 .watch-filter { margin-bottom: 14px; }
 .card[hidden] { display: none; }
+.watch-filter { align-items: center; }
+.watch-filter .chip b { margin-left: 2px; font-weight: 800; }
+.watch-filter .chip[aria-selected="true"] b { color: #fff; }
+.watch-filter-since { font-size: 12px; color: var(--muted); margin-left: 2px; }

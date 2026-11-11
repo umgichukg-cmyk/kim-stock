@@ -143,6 +143,16 @@ export async function setAutoWatch(value) {
   user = data.user ?? user;
 }
 
+// 관심 종목 개수 기록: { date: 오늘(YYYYMMDD), now: {all, mine, auto}, prevDate, prev: 그 전에 마지막으로 본 날의 개수 }
+export const getWatchCounts = () => user?.user_metadata?.watchCounts ?? null;
+
+export async function setWatchCounts(value) {
+  const sb = await getClient();
+  const { data, error } = await sb.auth.updateUser({ data: { watchCounts: value } });
+  if (error) throw new Error(error.message);
+  user = data.user ?? user;
+}
+
 // ---------- 종목 메모 ----------
 
 export async function listMemos(code) {
