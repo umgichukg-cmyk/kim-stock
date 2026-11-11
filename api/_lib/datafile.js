@@ -32,8 +32,23 @@ export async function readScoreHistory() {
   return scoreHistoryCache.data;
 }
 
+// 같은 날짜의 세부 점수 [기술, 수급, 기본] 기록 (11/12부터). 상세 화면에서만 써서 따로 둠
+let scorePartsCache = { at: 0, data: null };
+export async function readScoreParts() {
+  if (Date.now() - scorePartsCache.at > 300_000) {
+    scorePartsCache = { at: Date.now(), data: await readDataFile("score-parts.json").catch(() => null) };
+  }
+  return scorePartsCache.data;
+}
+
 // 한 종목의 기록 [[날짜, 점수], ...] (점수가 없는 날은 뺌)
-export function scoreHistoryOf(h, code) {
+// parts를 주면 [[날짜, 점수, 기술, 수급, 기본], ...] (세부 점수가 없는 날은 null)
+export function scoreHistoryOf(h, code, parts = null) {
   const arr = h?.scores?.[code];
-  return arr ? h.dates.map((d, i) => [d, arr[i]]).filter(([, v]) => v != null) : [];
+  if (!arr) return [];
+  const p = parts?.parts?.[code];
+  const at = p ? new Map(parts.dates.map((d, i) => [d, p[i]])) : null;
+  return h.dates
+    .map((d, i) => (at ? [d, arr[i], ...(at.get(d) ?? [null, null, null])] : [d, arr[i]]))
+    .filter(([, v]) => v != null);
 }

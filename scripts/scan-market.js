@@ -40,6 +40,7 @@ const THEME_BACKFILL_DAYS = 30; // 기록이 없는 과거 거래일은 관련 �
 const THEME_CATALOG = join(ROOT, args["theme-catalog"] || join(dirname(args.out || "data/top30.json"), "theme-catalog.json"));
 // 전 종목 날짜별 종합 점수 { dates: [날짜...], scores: { 종목코드: [날짜 순서대로 점수 또는 null] } } (관심 종목 점수 변화 표시용)
 const SCORE_HISTORY = join(ROOT, args["score-history"] || join(dirname(args.out || "data/top30.json"), "score-history.json"));
+const SCORE_PARTS = join(dirname(SCORE_HISTORY), "score-parts.json"); // 같은 날짜의 세부 점수 [기술, 수급, 기본]
 const SCORE_HISTORY_DAYS = 500; // 약 2년치 거래일 (1년에 약 245~250거래일)
 const KNOWN_BEFORE = "00000000";
 const NEW_THEME_DAYS = 5; // 새 테마는 처음 본 날부터 이 거래일 동안 NEW 표시
@@ -82,6 +83,9 @@ async function pool(items, size, fn, label) {
 
 async function main() {
   const started = Date.now();
+  // 점수 기록은 계산 전에 먼저 읽어 둠 (깨져 있으면 10분 넘게 계산하기 전에 바로 멈추게)
+  const scoreHistory = await readRecord(SCORE_HISTORY, "scores");
+  const scoreParts = await readRecord(SCORE_PARTS, "parts");
   const { today, closed } = koreaNow();
   let liveToday = false; // 장중에 실행해서 진행 중인 오늘 데이터를 뺐는지
   const dropToday = (rows) => {
@@ -212,7 +216,13 @@ async function main() {
   const missing = listedCodes.filter((c) => !scoreByCode.has(c)).map((c) => withCandles.find((s) => s.code === c)).filter(Boolean);
   // 기준일 점수 기록용 (기준일에 거래된 종목만)
   const dayScores = new Map(ranked.map((s) => [s.code, s.score.total]));
-  const keepDay = (r) => !r.error && r.date === basisDate && r.score.total != null && dayScores.set(r.code, r.score.total);
+  const partsOf = (sc) => [sc.technical?.score ?? null, sc.supply?.score ?? null, sc.basic?.score ?? null];
+  const dayParts = new Map(ranked.map((s) => [s.code, partsOf(s.score)]));
+  const keepDay = (r) => {
+    if (r.error || r.date !== basisDate || r.score.total == null) return;
+    dayScores.set(r.code, r.score.total);
+    dayParts.set(r.code, partsOf(r.score));
+  };
   for (const r of await pool(missing, CONCURRENCY, scoreOne, "추가 점수")) {
     if (!r.error) scoreByCode.set(r.code, r.score);
     keepDay(r);
@@ -227,13 +237,14 @@ async function main() {
   // 7) 전 종목 점수 기록: 거래대금이 적어 위에서 계산하지 않은 종목도 관심 종목일 수 있어서 모두 계산
   const rest = okStocks.filter((s) => !scoreByCode.has(s.code) && s.candles.at(-1)?.date === basisDate);
   for (const r of await pool(rest, CONCURRENCY, scoreOne, "나머지 점수")) keepDay(r);
-  const scoreHistory = await readFile(SCORE_HISTORY, "utf8").then(JSON.parse).catch(() => ({ dates: [], scores: {} }));
-  addScoreDay(scoreHistory, basisDate, dayScores);
+  addScoreDay(scoreHistory, "scores", basisDate, dayScores);
+  addScoreDay(scoreParts, "parts", basisDate, dayParts);
 
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(result));
   await writeFile(HISTORY, JSON.stringify(history));
   await writeFile(SCORE_HISTORY, JSON.stringify(scoreHistory));
+  await writeFile(SCORE_PARTS, JSON.stringify(scoreParts));
   console.log(`점수 기록: ${basisDate} ${dayScores.size}개 종목 (기록 ${scoreHistory.dates.length}일치)`);
   await writeFile(join(dirname(OUT), "kr-briefing.json"), JSON.stringify(briefing));
   console.log(`한국 시장 브리핑: ${briefing.summary.length}줄 · 업종 ${briefing.industries ? "포함" : "제외(장중 실행)"}`);
@@ -247,23 +258,39 @@ async function main() {
   console.log(`저장: ${OUT}, ${HISTORY}`);
 }
 
-// 날짜별 점수 기록에 하루치 넣기. 같은 날짜를 다시 계산하면 그날 값만 덮어씀
-function addScoreDay(h, date, totals) {
+// 날짜별 기록 파일 읽기. 파일이 아직 없을 때만 빈 기록으로 시작하고,
+// 있는데 깨져 있으면 멈춤 (빈 기록으로 덮어써서 그동안 쌓인 기록을 잃지 않게)
+async function readRecord(file, key) {
+  let text;
+  try {
+    text = await readFile(file, "utf8");
+  } catch (e) {
+    if (e.code === "ENOENT") return { dates: [], [key]: {} };
+    throw e;
+  }
+  const h = JSON.parse(text);
+  if (!Array.isArray(h.dates) || typeof h[key] !== "object") throw new Error(`${file} 기록 형식이 이상해요`);
+  return h;
+}
+
+// 날짜별 점수 기록에 하루치 넣기 (key: "scores"는 종합 점수, "parts"는 [기술, 수급, 기본])
+// 같은 날짜를 다시 계산하면 그날 값만 덮어씀
+function addScoreDay(h, key, date, values) {
   if (!h.dates.includes(date)) {
     h.dates.push(date);
     h.dates.sort();
     const i = h.dates.indexOf(date);
-    for (const arr of Object.values(h.scores)) arr.splice(i, 0, null);
+    for (const arr of Object.values(h[key])) arr.splice(i, 0, null);
   }
   const i = h.dates.indexOf(date);
-  for (const [code, total] of totals) (h.scores[code] ??= Array(h.dates.length).fill(null))[i] = total;
+  for (const [code, v] of values) (h[key][code] ??= Array(h.dates.length).fill(null))[i] = v;
   // 오래된 날짜는 빼고, 남은 기간에 점수가 하나도 없는 종목(상장폐지 등)은 지움
   const drop = h.dates.length - SCORE_HISTORY_DAYS;
   if (drop > 0) {
     h.dates.splice(0, drop);
-    for (const [code, arr] of Object.entries(h.scores)) {
+    for (const [code, arr] of Object.entries(h[key])) {
       arr.splice(0, drop);
-      if (arr.every((v) => v == null)) delete h.scores[code];
+      if (arr.every((v) => v == null)) delete h[key][code];
     }
   }
 }

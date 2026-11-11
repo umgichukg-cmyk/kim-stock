@@ -34,15 +34,36 @@ jobs:
         run: |
           mkdir -p out
           # data 브랜치가 아직 없으면(첫 실행) 빈 기록으로 시작
-          if git fetch -q --depth=1 origin data 2>/dev/null; then
+          # 브랜치가 있는데 받기에 실패하면(일시 장애) 세 번까지 다시 해 보고, 그래도 안 되면 멈춤
+          # → 빈 기록으로 계산해서 그동안 쌓인 기록을 덮어쓰는 일을 막음
+          fetched=no
+          rc=0
+          for i in 1 2 3; do
+            if git fetch -q --depth=1 origin data 2>/dev/null; then fetched=yes; break; fi
+            rc=0
+            git ls-remote --exit-code --heads origin data >/dev/null 2>&1 || rc=$?
+            if [ "$rc" -eq 2 ]; then break; fi # 2: 브랜치가 아직 없음 (첫 실행)
+            echo "이전 기록 받기 실패 ${i}번째, 20초 뒤 다시 시도"
+            sleep 20
+          done
+          if [ "$fetched" = no ] && [ "$rc" -ne 2 ]; then
+            echo "::error::이전 기록을 받지 못해서 멈춰요 (쌓인 기록을 빈 기록으로 덮어쓰지 않으려고)"
+            exit 1
+          fi
+          if [ "$fetched" = yes ]; then
             git show FETCH_HEAD:history.json > out/history.json || echo '{}' > out/history.json
             git show FETCH_HEAD:theme-history.json > out/theme-history.json || echo '{}' > out/theme-history.json
             # 테마를 처음 본 날 기록 (새로 생긴 테마 찾기용). 없으면 이번 실행이 첫 기록
             git show FETCH_HEAD:theme-catalog.json > out/theme-catalog.json || rm -f out/theme-catalog.json
             # 장중 실행이라 테마를 새로 못 만들면 이전 결과를 그대로 둠
             git show FETCH_HEAD:kr-themes.json > out/kr-themes.json || rm -f out/kr-themes.json
-            # 전 종목 날짜별 점수 (관심 종목 점수 변화 표시용). 없으면 이번 실행이 첫 기록
-            git show FETCH_HEAD:score-history.json > out/score-history.json || rm -f out/score-history.json
+            # 전 종목 날짜별 종합 점수 (11/9부터 쌓는 중). 받은 브랜치에 없으면 이상한 상황이라 멈춤
+            if ! git show FETCH_HEAD:score-history.json > out/score-history.json; then
+              echo "::error::data 브랜치에 score-history.json이 없어서 멈춰요 (기록을 덮어쓰지 않으려고)"
+              exit 1
+            fi
+            # 같은 날짜의 세부 점수 [기술, 수급, 기본] (11/12부터). 없으면 이번 실행이 첫 기록
+            git show FETCH_HEAD:score-parts.json > out/score-parts.json || rm -f out/score-parts.json
           else
             echo '{}' > out/history.json
             echo '{}' > out/theme-history.json
@@ -52,6 +73,17 @@ jobs:
 
       - name: 전체 종목 점수 계산
         run: node scripts/scan-market.js --out out/top30.json --history out/history.json --theme-history out/theme-history.json --theme-catalog out/theme-catalog.json --score-history out/score-history.json
+
+      # 점수 기록 백업: 실행할 때마다 GitHub Actions 실행 화면에 90일 동안 보관 (기록이 사라지면 여기서 되살림)
+      - name: 점수 기록 백업
+        uses: actions/upload-artifact@v4
+        with:
+          name: score-records-${{ github.run_id }}
+          path: |
+            out/score-history.json
+            out/score-parts.json
+          retention-days: 90
+          if-no-files-found: warn
 
       - name: data 브랜치에 결과 저장
         env:

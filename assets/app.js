@@ -1338,10 +1338,10 @@ async function loadScoreTrend(s) {
     box.innerHTML = `<div class="state">점수 기록을 불러오지 못했어요.<br><small>${esc(data.error)}</small></div>`;
     return;
   }
-  const points = data.history.map(([d, v]) => ({ d, v }));
+  const points = data.history.map(([d, v, t, sp, b]) => ({ d, v, parts: t == null && sp == null && b == null ? null : [t, sp, b] }));
   // 저녁 계산 뒤에 새 거래일 데이터가 생겼으면(장중 등) 지금 점수를 마지막 점으로
   const lastCandle = s.candles.at(-1)?.date;
-  if (s.score.total != null && lastCandle && lastCandle > (points.at(-1)?.d ?? "")) points.push({ d: lastCandle, v: s.score.total, live: true });
+  if (s.score.total != null && lastCandle && lastCandle > (points.at(-1)?.d ?? "")) points.push({ d: lastCandle, v: s.score.total, live: true, parts: [s.score.technical?.score ?? null, s.score.supply?.score ?? null, s.score.basic?.score ?? null] });
   const added = watch ? { d: kstYmd(new Date(watch.created_at).getTime()), v: watch.added_score ?? null } : null;
 
   const show = (n) => {
@@ -1402,14 +1402,25 @@ function scoreTrendHtml(pts, n, added, width) {
       : pts.some((p) => p.live)
         ? `<p class="sub">마지막 점(속이 빈 점)은 아직 저녁 계산 전인 지금 점수예요.</p>`
         : "";
+  // 세부 점수(기술·수급·기본)는 11/12부터 기록해서, 있는 날만 칸을 채우고 전날보다 바뀌면 ▲▼ 표시
+  const hasParts = pts.some((p) => p.parts && !p.live);
+  const partCell = (p, prev, k) => {
+    const v = p.parts?.[k];
+    if (v == null) return `<td class="num muted">-</td>`;
+    const pv = prev?.parts?.[k];
+    const dv = pv == null ? 0 : v - pv;
+    return `<td class="num">${v}${dv ? ` <small class="${dv > 0 ? "up" : "down"}">${dv > 0 ? "▲" : "▼"}${Math.abs(dv)}</small>` : ""}</td>`;
+  };
   const rows = [...pts]
     .reverse()
     .map((p, i, arr) => {
       const prev = arr[i + 1];
       const dv = prev ? p.v - prev.v : null;
-      return `<tr><td>${p.live ? "지금" : `${ymdShort(p.d)}(${WEEKDAY[new Date(dayUtc(p.d)).getUTCDay()]})`}</td><td class="num">${p.v}</td><td class="num ${dv ? (dv > 0 ? "up" : "down") : ""}">${dv == null ? "" : dv ? `${dv > 0 ? "▲" : "▼"}${Math.abs(dv)}` : "-"}</td></tr>`;
+      const parts = hasParts ? [0, 1, 2].map((k) => partCell(p, prev, k)).join("") : "";
+      return `<tr><td>${p.live ? "지금" : `${ymdShort(p.d)}(${WEEKDAY[new Date(dayUtc(p.d)).getUTCDay()]})`}</td><td class="num">${p.v}</td><td class="num ${dv ? (dv > 0 ? "up" : "down") : ""}">${dv == null ? "" : dv ? `${dv > 0 ? "▲" : "▼"}${Math.abs(dv)}` : "-"}</td>${parts}</tr>`;
     })
     .join("");
+  const partHead = hasParts ? `<th>기술 <small>/45</small></th><th>수급 <small>/45</small></th><th>기본 <small>/10</small></th>` : "";
   return `<div class="stats trend-stats">
       ${statBox("기간 변화", `${change > 0 ? "▲" : change < 0 ? "▼" : ""}${Math.abs(change)}점`, change ? (change > 0 ? "up" : "down") : "")}
       ${statBox("최고", `${hi}점 · ${ymdShort(at(hi).d)}`)}
@@ -1420,7 +1431,7 @@ function scoreTrendHtml(pts, n, added, width) {
     <div class="trend-box">${svg}</div>
     ${note}
     <details class="trend-table"><summary>날짜별 점수 보기 (${pts.length}거래일)</summary>
-      <table><thead><tr><th>날짜</th><th>점수</th><th>전일 대비</th></tr></thead><tbody>${rows}</tbody></table>
+      <table><thead><tr><th>날짜</th><th>점수</th><th>전일 대비</th>${partHead}</tr></thead><tbody>${rows}</tbody></table>
     </details>`;
 }
 
