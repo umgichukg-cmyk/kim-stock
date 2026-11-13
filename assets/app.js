@@ -1063,7 +1063,12 @@ document.querySelector(".tabs").addEventListener("click", (e) => {
 
 // 휴대폰용 선택 상자: 탭 목록을 그대로 옮겨 담음
 $("#view-select").innerHTML = VIEWS.map((v) => `<option value="${v}">${$(`#tab-${v}`).textContent}</option>`).join("");
-$("#view-select").addEventListener("change", (e) => showView(e.target.value));
+$("#view-select").addEventListener("change", (e) => {
+  showView(e.target.value);
+  // 시장 지표 차트는 건너뛰고 고른 화면의 내용부터 보이게 (상단 고정 줄 높이만큼 띄움)
+  const top = $(`#view-${e.target.value}`).getBoundingClientRect().top + scrollY - $(".topbar").offsetHeight - 8;
+  scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+});
 
 // ---------- 상세 ----------
 
