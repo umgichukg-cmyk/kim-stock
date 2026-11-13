@@ -113,14 +113,14 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .tab { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 36px; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-weight: 700; }
 .tab:hover { color: var(--text); background: var(--surface-2); }
 .tab[aria-selected="true"] { background: var(--accent); color: #fff; }
-/* 휴대폰 메뉴: 주황 바탕에 "☰ 메뉴" 표시와 동그란 화살표로 눌러서 고르는 메뉴처럼 보이게 */
-.view-select { display: none; position: relative; margin: 0 0 14px; border-radius: 14px; background: linear-gradient(135deg, var(--accent), #ff9a52); box-shadow: 0 6px 18px rgba(242, 107, 29, .35); }
-.view-select select { width: 100%; height: 56px; padding: 0 60px 0 92px; border: 0; border-radius: 14px; background: transparent; color: #fff; font: inherit; font-size: 18px; font-weight: 800; letter-spacing: -.2px; appearance: none; -webkit-appearance: none; cursor: pointer; }
+/* 휴대폰 메뉴: 상단 "김가네 주식" 옆 주황 선택 상자 (☰ 표시와 동그란 화살표, 화면을 내려도 상단에 붙어 있음) */
+.view-select { display: none; position: relative; flex: 1; min-width: 0; border-radius: 12px; background: linear-gradient(135deg, var(--accent), #ff9a52); box-shadow: 0 4px 12px rgba(242, 107, 29, .3); }
+.view-select select { width: 100%; height: 42px; padding: 0 40px 0 40px; border: 0; border-radius: 12px; background: transparent; color: #fff; font: inherit; font-size: 15.5px; font-weight: 800; letter-spacing: -.2px; text-overflow: ellipsis; appearance: none; -webkit-appearance: none; cursor: pointer; }
 .view-select select:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
 .view-select select option { color: var(--text); background: var(--surface); font-weight: 600; }
-.view-select-tag { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 8px; background: rgba(0, 0, 0, .22); color: #fff; font-size: 13px; font-weight: 800; pointer-events: none; }
-.view-select-tag i { width: 13px; height: 2px; background: #fff; border-radius: 1px; box-shadow: 0 -4px 0 #fff, 0 4px 0 #fff; }
-.view-select::after { content: ""; position: absolute; right: 12px; top: 50%; width: 34px; height: 34px; margin-top: -17px; border-radius: 50%; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23f26b1d' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 18px no-repeat; pointer-events: none; }
+.view-select-tag { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; background: rgba(0, 0, 0, .22); pointer-events: none; }
+.view-select-tag i { width: 12px; height: 2px; background: #fff; border-radius: 1px; box-shadow: 0 -4px 0 #fff, 0 4px 0 #fff; }
+.view-select::after { content: ""; position: absolute; right: 7px; top: 50%; width: 28px; height: 28px; margin-top: -14px; border-radius: 50%; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23f26b1d' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 15px no-repeat; pointer-events: none; }
 @media (max-width: 900px) {
   .tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
@@ -338,7 +338,8 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 @media (max-width: 640px) {
   .topbar-inner { flex-wrap: wrap; height: auto; padding: 10px 0; gap: 10px; }
   .search { order: 3; max-width: none; flex-basis: 100%; }
-  .topbar-actions { margin-left: auto; }
+  /* 1줄: 김가네 주식 + 메뉴, 2줄: 기준 시각·로그인·새로고침, 3줄: 검색 */
+  .topbar-actions { order: 2; flex-basis: 100%; justify-content: flex-end; }
   .market { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .panel { padding: 14px; }
   .theme-row { grid-template-columns: 20px 80px 1fr 60px; gap: 8px; padding: 8px 6px; }

@@ -29,6 +29,11 @@
         <span class="brand-mark" aria-hidden="true"></span>
         <span>김가네 주식</span>
       </a>
+      <!-- 휴대폰에서는 탭 대신 상단 고정 선택 상자 (보기 목록은 아래 탭에서 채움, 아이폰에서는 휠로 고름) -->
+      <label class="view-select">
+        <span class="view-select-tag" aria-hidden="true"><i></i></span>
+        <select id="view-select" aria-label="화면 선택"></select>
+      </label>
       <form class="search" id="search-form" role="search">
         <input id="search-input" maxlength="30" autocomplete="off" placeholder="종목명 또는 코드 (예: 삼성전자, 005930)" aria-label="종목명 또는 종목코드" role="combobox" aria-expanded="false" aria-controls="suggest">
         <button type="submit">분석</button>
@@ -60,11 +65,6 @@
       <button class="tab" role="tab" id="tab-ipo" data-view="ipo" aria-selected="false">공모주 청약</button>
       <button class="tab" role="tab" id="tab-watch" data-view="watch" aria-selected="false">관심 종목</button>
     </nav>
-    <!-- 휴대폰에서는 탭 대신 선택 상자 (보기 목록은 위 탭에서 채움) -->
-    <label class="view-select">
-      <span class="view-select-tag" aria-hidden="true"><i></i>메뉴</span>
-      <select id="view-select" aria-label="화면 선택"></select>
-    </label>
 
     <section id="view-krlive">
       <div class="panel">
