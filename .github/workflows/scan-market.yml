@@ -64,6 +64,8 @@ jobs:
             fi
             # 같은 날짜의 세부 점수 [기술, 수급, 기본] (11/12부터). 없으면 이번 실행이 첫 기록
             git show FETCH_HEAD:score-parts.json > out/score-parts.json || rm -f out/score-parts.json
+            # 조건 검색 날짜별 결과 (지난 날짜 목록을 그대로 이어 감). 없으면 이번 실행이 첫 기록
+            git show FETCH_HEAD:signals.json > out/signals.json || rm -f out/signals.json
           else
             echo '{}' > out/history.json
             echo '{}' > out/theme-history.json

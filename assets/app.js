@@ -873,6 +873,58 @@ async function loadLimits() {
   }
 }
 
+// ---------- 조건 검색 탭 ----------
+// 거래량 급증 + 5·20일선 골든크로스 + 외국인·기관 순매수 (저녁 자동 계산이 날짜별로 남긴 목록)
+
+let signalsLoaded = 0;
+let signalsData = null;
+const SIGNAL_FILTERS = [["strict", "엄격 (거래량 5배 · 과열 아님)"], ["all", "넓게 (거래량 2배)"]];
+let signalFilter = "strict";
+const MARKET_STATE = { up: "상승", caution: "주의", down: "하락" };
+
+function renderSignals() {
+  const data = signalsData;
+  if (!data) return;
+  $("#signals-filter").innerHTML = SIGNAL_FILTERS.map(
+    ([k, label]) => `<button type="button" class="chip" data-filter="${k}" aria-selected="${k === signalFilter}">${label}</button>`
+  ).join("");
+  const val = (s) => {
+    const since = s.last && s.close ? (s.last / s.close - 1) * 100 : null;
+    return `${s.overheat ? `<span class="tbadge overheat" title="단기 과열">과열</span>` : ""}<span class="vl" style="color:var(--muted)" title="거래량이 직전 20거래일 평균의 몇 배인지">${s.volx}배</span><span class="vl sg-flow" style="color:var(--muted)" title="그날 외국인 · 기관 순매수">외 ${s.foreignEok}억 · 기 ${s.institutionEok}억</span><span class="vl ${dir(s.changePct)}" title="신호 날 등락률">${pct(s.changePct, 1)}</span><span class="vl sg-since ${dir(since)}" title="신호 날 종가 ${won(s.close)}원 → 최근 종가 ${won(s.last)}원">${since == null ? "-" : `이후 ${pct(since, 1)}`}</span>`;
+  };
+  const days = data.days.map((d) => ({ ...d, items: d.items.filter((s) => signalFilter === "all" || s.strict) }));
+  const html = days
+    .filter((d, i) => d.items.length || i === 0)
+    .map((d) => {
+      const date = new Date(`${d.date.slice(0, 4)}-${d.date.slice(4, 6)}-${d.date.slice(6, 8)}T12:00:00`);
+      const state = d.market ? `<span class="sg-market ${d.market}" title="그날 코스피·코스닥이 20일선 위였는지">시장 ${MARKET_STATE[d.market]}</span>` : "";
+      const title = `${date.getMonth() + 1}/${date.getDate()}(${"일월화수목금토"[date.getDay()]}) ${state} <span class="sub">${d.items.length}종목</span>`;
+      return d.items.length ? rankList(title, d.items, val) : `<div><p class="col-title">${title}</p><p class="sub">조건에 맞는 종목이 없어요.</p></div>`;
+    })
+    .join("");
+  $("#signals").innerHTML = `<div class="sg-days">${html}</div>`;
+}
+
+async function loadSignals() {
+  if (Date.now() - signalsLoaded < 600_000) return;
+  $("#signals").innerHTML = `<div class="skeleton" style="height:200px"></div>`;
+  try {
+    signalsData = await getJson("/api/signals");
+    signalsLoaded = Date.now();
+    krUpdateLine("#upd-signals", signalsData.basisDate, signalsData.generatedAt);
+    renderSignals();
+  } catch (e) {
+    $("#signals").innerHTML = `<div class="state">불러오지 못했어요.<br><small>${esc(e.message)}</small><br><button data-signals-retry>다시 시도</button></div>`;
+  }
+}
+
+$("#signals-filter").addEventListener("click", (e) => {
+  const chip = e.target.closest("[data-filter]");
+  if (!chip) return;
+  signalFilter = chip.dataset.filter;
+  renderSignals();
+});
+
 // ---------- 한국 테마 브리핑 탭 ----------
 
 let krThemesLoaded = 0;
@@ -1056,7 +1108,7 @@ async function loadIpo() {
   }
 }
 
-const VIEWS = ["krlive", "themes", "top30", "briefing", "krbriefing", "krthemes", "limits", "ipo", "watch"];
+const VIEWS = ["krlive", "themes", "top30", "briefing", "krbriefing", "krthemes", "limits", "ipo", "signals", "watch"];
 
 function showView(view) {
   if (!VIEWS.includes(view)) view = "krlive";
@@ -1068,6 +1120,7 @@ function showView(view) {
   if (view === "krlive") loadKrLive({ quiet: true });
   if (view === "top30") loadTop30();
   if (view === "limits") loadLimits();
+  if (view === "signals") loadSignals();
   if (view === "krthemes") loadKrThemes();
   if (view === "ipo") loadIpo();
   if (view === "briefing") loadBriefing();
@@ -1804,6 +1857,10 @@ document.addEventListener("click", (e) => {
     return;
   }
 
+  if (e.target.closest("[data-signals-retry]")) {
+    signalsLoaded = 0;
+    return loadSignals();
+  }
   if (e.target.closest("[data-limits-retry]")) {
     limitsLoaded = 0;
     return loadLimits();

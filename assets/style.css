@@ -156,6 +156,18 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .rank-list .tbadge { margin-left: 0; }
 .tbadge.new { background: #19a55a; color: #fff; letter-spacing: 0.3px; }
 .tbadge.turn { border: 1px dashed var(--muted); color: var(--text); }
+/* 조건 검색 */
+#signals-filter { margin: 0 0 14px; }
+.sg-days { display: grid; gap: 16px; }
+.sg-days .col-title { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 14px; }
+.sg-market { padding: 1px 8px; border-radius: 6px; color: #fff; font-size: 11.5px; font-weight: 800; }
+.sg-market.up { background: var(--up); }
+.sg-market.caution { background: var(--accent); }
+.sg-market.down { background: var(--down); }
+.sg-since { min-width: 74px; text-align: right; }
+@media (max-width: 640px) {
+  .sg-flow { display: none; }
+}
 .tbadge.overheat { background: #d92d20; color: #fff; }
 .overheat-note { margin: 0 0 12px; padding: 10px 12px; border: 1px solid #d92d20; border-radius: 10px; font-size: 13px; line-height: 1.5; }
 .overheat-note b { color: #d92d20; }

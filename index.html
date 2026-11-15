@@ -64,6 +64,7 @@
       <button class="tab" role="tab" id="tab-krthemes" data-view="krthemes" aria-selected="false">한국 테마 브리핑</button>
       <button class="tab" role="tab" id="tab-limits" data-view="limits" aria-selected="false">상한가·하한가</button>
       <button class="tab" role="tab" id="tab-ipo" data-view="ipo" aria-selected="false">공모주 청약</button>
+      <button class="tab" role="tab" id="tab-signals" data-view="signals" aria-selected="false">조건 검색</button>
       <button class="tab" role="tab" id="tab-watch" data-view="watch" aria-selected="false">관심 종목</button>
     </nav>
 
@@ -114,6 +115,20 @@
       </div>
       <div class="two-col" id="limits"></div>
       <p class="notice">상한가·하한가는 전일 대비 ±29% 이상이면서 종가가 그날 고가(저가)와 같은 종목이에요. 장중에 닿았다가 내려온 종목과, 전일 종가가 없는 신규 상장 첫날 종목은 빠져요. 평일 저녁 7시쯤 갱신돼요.</p>
+    </section>
+
+    <section class="panel" id="view-signals" hidden>
+      <div class="panel-head">
+        <div>
+          <h2>조건 검색</h2>
+          <p class="sub">같은 날 거래량이 터지고 · 5일선이 20일선을 골든크로스하고 · 외국인과 기관이 모두 순매수한 종목 · 종목을 누르면 상세 분석</p>
+          <p class="update-line" id="upd-signals"></p>
+        </div>
+        <span class="live-badge closed" title="장 마감된 결과를 보여주는 탭이에요">장 종료</span>
+      </div>
+      <div class="chips" id="signals-filter" role="tablist" aria-label="조건 강도"></div>
+      <div id="signals"></div>
+      <p class="notice">엄격: 거래량이 직전 20거래일 평균의 5배 이상이고 과열이 아닌 종목. 넓게: 거래량 2배 이상. 20일 평균 거래대금 10억 원 이상인 보통주만 봐요. 지난 1년 기록에서는 시장 상태가 "상승"인 날의 엄격 조건이 가장 나았지만 46건뿐이었고, 시장이 꺾이기 직전에 나온 신호는 크게 빠졌어요. 매수 신호가 아니라 살펴볼 후보 목록이에요. 평일 저녁 7시쯤 갱신돼요.</p>
     </section>
 
     <section class="panel" id="view-krthemes" hidden>

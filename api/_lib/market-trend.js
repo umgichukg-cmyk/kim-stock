@@ -17,11 +17,29 @@ async function indexState(index, name) {
   return { name, date: last.date, close: last.close, ma20, gapPct: (last.close / ma20 - 1) * 100, above: last.close > ma20 };
 }
 
+const stateOf = (up) => (up === 2 ? "up" : up === 0 ? "down" : "caution");
+
+// 날짜별 시장 상태 { 날짜: "up" | "caution" | "down" } (조건 검색 결과에 그날 시장 상태를 붙일 때 씀)
+export async function getMarketTrendByDate(fromYmd, toYmd) {
+  const above = await Promise.all(
+    ["KOSPI", "KOSDAQ"].map(async (index) => {
+      const rows = await getIndexDaily(index, fromYmd, toYmd);
+      return new Map(rows.map((r, t) => [r.date, t >= 19 ? r.close > rows.slice(t - 19, t + 1).reduce((s, x) => s + x.close, 0) / 20 : null]));
+    })
+  );
+  const out = {};
+  for (const [date, kospi] of above[0]) {
+    const kosdaq = above[1].get(date);
+    if (kospi != null && kosdaq != null) out[date] = stateOf(Number(kospi) + Number(kosdaq));
+  }
+  return out;
+}
+
 export async function getMarketTrend() {
   if (cache && Date.now() - cache.at < TTL) return cache.value;
   const indices = await Promise.all([indexState("KOSPI", "코스피"), indexState("KOSDAQ", "코스닥")]);
   const up = indices.filter((i) => i.above).length;
-  const value = { state: up === 2 ? "up" : up === 0 ? "down" : "caution", label: up === 2 ? "상승" : up === 0 ? "하락" : "주의", date: indices[0].date, indices };
+  const value = { state: stateOf(up), label: up === 2 ? "상승" : up === 0 ? "하락" : "주의", date: indices[0].date, indices };
   cache = { at: Date.now(), value };
   return value;
 }

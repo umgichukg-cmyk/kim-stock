@@ -25,6 +25,8 @@ import {
   getIndexDaily,
 } from "../api/_lib/naver.js";
 import { scoreStock } from "../api/_lib/score.js";
+import { findSignals, SIGNAL_RULE } from "../api/_lib/signals.js";
+import { getMarketTrendByDate } from "../api/_lib/market-trend.js";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const args = Object.fromEntries(
@@ -42,6 +44,9 @@ const THEME_CATALOG = join(ROOT, args["theme-catalog"] || join(dirname(args.out 
 const SCORE_HISTORY = join(ROOT, args["score-history"] || join(dirname(args.out || "data/top30.json"), "score-history.json"));
 const SCORE_PARTS = join(dirname(SCORE_HISTORY), "score-parts.json"); // 같은 날짜의 세부 점수 [기술, 수급, 기본]
 const SCORE_HISTORY_DAYS = 500; // 약 2년치 거래일 (1년에 약 245~250거래일)
+// 조건 검색 결과 { days: [{ date, market, items: [...] }] } (거래량 급증 + 골든크로스 + 외국인·기관 순매수)
+const SIGNALS = join(dirname(SCORE_HISTORY), "signals.json");
+const SIGNAL_DAYS = 60; // 기록을 남길 거래일 수
 const KNOWN_BEFORE = "00000000";
 const NEW_THEME_DAYS = 5; // 새 테마는 처음 본 날부터 이 거래일 동안 NEW 표시
 const TOP = Number(args.top ?? 30);
@@ -159,6 +164,8 @@ async function main() {
         basic: { score: score.basic.score, max: score.basic.max },
       },
       spark: s.candles.slice(-30).map((c) => c.close),
+      signals: findSignals(s.candles, flows), // 조건 검색 (수급이 있는 최근 20거래일)
+      flowDates: flows.map((f) => f.date),
     };
   };
   const scored = await pool(liquid, CONCURRENCY, scoreOne, "점수");
@@ -195,8 +202,9 @@ async function main() {
     historyDays: Object.keys(history).length,
     counts: { listed: list.length, universe: universe.length, scored: ranked.length, failed: failedCandles + scored.filter((s) => s.error).length },
     excluded,
-    items: top.map((s, i) => ({ rank: i + 1, streak: streakOf(s.code), ...s })),
+    items: top.map(({ signals, flowDates, ...s }, i) => ({ rank: i + 1, streak: streakOf(s.code), ...s })),
   };
+  const signalFile = await buildSignals({ scored, calendar, basisDate });
 
   // 5) 한국 시장 브리핑 (같은 기준일)
   const okStocks = withCandles.filter((s) => !s.error);
@@ -246,6 +254,9 @@ async function main() {
   await writeFile(HISTORY, JSON.stringify(history));
   await writeFile(SCORE_HISTORY, JSON.stringify(scoreHistory));
   await writeFile(SCORE_PARTS, JSON.stringify(scoreParts));
+  await writeFile(SIGNALS, JSON.stringify(signalFile));
+  const todaySignals = signalFile.days.find((d) => d.date === basisDate)?.items ?? [];
+  console.log(`조건 검색: ${basisDate} ${todaySignals.length}종목 (엄격 ${todaySignals.filter((s) => s.strict).length}) · 기록 ${signalFile.days.length}일치`);
   console.log(`점수 기록: ${basisDate} ${dayScores.size}개 종목 (기록 ${scoreHistory.dates.length}일치)`);
   await writeFile(join(dirname(OUT), "kr-briefing.json"), JSON.stringify(briefing));
   console.log(`한국 시장 브리핑: ${briefing.summary.length}줄 · 업종 ${briefing.industries ? "포함" : "제외(장중 실행)"}`);
@@ -257,6 +268,30 @@ async function main() {
   console.log(`상위 ${TOP}: ${result.items.slice(0, 10).map((s) => `${s.name} ${s.score.total}`).join(", ")} ...`);
   console.log(`연속 진입: ${result.items.filter((s) => s.streak > 1).length}개 종목이 2일 이상 (기록 ${result.historyDays}일치)`);
   console.log(`저장: ${OUT}, ${HISTORY}`);
+}
+
+// 조건 검색 결과 만들기: 거래대금 조건을 통과한 종목에서 날짜별 신호를 모으고 그날 시장 상태를 붙임
+// 이미 기록된 지난 날짜는 그대로 두고(저녁에 본 목록이 나중에 바뀌지 않게), 기준일과 기록이 없는 날짜만 새로 계산
+async function buildSignals({ scored, calendar, basisDate }) {
+  const ok = scored.filter((s) => !s.error);
+  const prev = await readFile(SIGNALS, "utf8").then(JSON.parse).catch(() => null);
+  const days = new Map((prev?.days ?? []).map((d) => [d.date, d]));
+  const window = [...new Set(ok.flatMap((s) => s.flowDates))].filter((d) => d <= basisDate).sort();
+  const market = window.length
+    ? await getMarketTrendByDate(calendar[Math.min(calendar.length - 1, window.length + 40)], basisDate).catch(() => ({}))
+    : {};
+  for (const date of window) {
+    if (days.has(date) && date !== basisDate) continue;
+    const items = ok
+      .flatMap((s) => s.signals.filter((g) => g.date === date).map(({ date: _, ...g }) => ({ code: s.code, name: s.name, market: s.market, ...g })))
+      .sort((a, b) => Number(b.strict) - Number(a.strict) || b.volx - a.volx);
+    days.set(date, { date, market: market[date] ?? null, items });
+  }
+  // 지금 가격을 붙여 "신호 뒤 수익률"을 볼 수 있게 함
+  const lastPrice = new Map(ok.map((s) => [s.code, s.price]));
+  const kept = [...days.values()].sort((a, b) => b.date.localeCompare(a.date)).filter((d) => calendar.slice(0, SIGNAL_DAYS).includes(d.date));
+  for (const d of kept) for (const it of d.items) it.last = lastPrice.get(it.code) ?? null;
+  return { basisDate, generatedAt: new Date().toISOString(), rule: SIGNAL_RULE, days: kept };
 }
 
 // 날짜별 기록 파일 읽기. 파일이 아직 없을 때만 빈 기록으로 시작하고,

@@ -13,6 +13,7 @@ import news from "./_routes/news.js";
 import picks from "./_routes/picks.js";
 import scoreHistory from "./_routes/score-history.js";
 import search from "./_routes/search.js";
+import signals from "./_routes/signals.js";
 import stock from "./_routes/stock.js";
 import top30 from "./_routes/top30.js";
 import watch from "./_routes/watch.js";
@@ -31,6 +32,7 @@ const ROUTES = {
   picks,
   "score-history": scoreHistory,
   search,
+  signals,
   stock,
   top30,
   watch,
