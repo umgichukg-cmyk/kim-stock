@@ -153,6 +153,7 @@ async function main() {
         total: score.total,
         grade: score.grade,
         complete: score.complete,
+        overheat: score.overheat,
         technical: { score: score.technical.score, max: score.technical.max },
         supply: { score: score.supply.score, max: score.supply.max },
         basic: { score: score.basic.score, max: score.basic.max },

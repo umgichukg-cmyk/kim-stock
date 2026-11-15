@@ -259,6 +259,16 @@ export function scoreStock(candles, flows, fundamentals) {
   // 몇 개 항목만으로 점수가 부풀려지므로 종합 점수를 내지 않음
   const total = available >= MIN_AVAILABLE ? Math.round((raw / available) * 100) : null;
 
+  // 과열: RSI 80 이상이거나 주가가 20일선보다 20% 이상 높음
+  // (1년치 검증에서 이 구간은 20일 뒤 중간값이 시장보다 -7%로 가장 나빴음. 점수에는 넣지 않고 표시만)
+  const rsiNow = technical[1].rsi ?? null;
+  const ma20 = sma(closes, 20).at(-1);
+  const gap20 = ma20 ? (closes.at(-1) / ma20 - 1) * 100 : null;
+  const reasons = [];
+  if (rsiNow != null && rsiNow >= 80) reasons.push(`RSI ${rsiNow.toFixed(0)}`);
+  if (gap20 != null && gap20 >= 20) reasons.push(`20일선보다 +${gap20.toFixed(0)}%`);
+  const overheat = reasons.length ? reasons.join(" · ") : null;
+
   return {
     total,
     available,
@@ -267,6 +277,7 @@ export function scoreStock(candles, flows, fundamentals) {
     supply: { score: sum(supply), max: maxOf(supply), items: supply },
     basic: { score: sum(basic), max: maxOf(basic), items: basic },
     complete: available === 100,
+    overheat,
   };
 }
 

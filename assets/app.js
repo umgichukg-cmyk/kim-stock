@@ -69,6 +69,13 @@ function ring(score, grade) {
   </div>`;
 }
 
+// 과열 표시: 단기간에 너무 올라 조심할 구간 (점수와는 별개)
+function overheatBadge(score) {
+  return score?.overheat
+    ? ` <span class="tbadge overheat" title="단기 과열 (${esc(score.overheat)}) · 지난 1년 이런 종목은 20일 뒤 시장보다 약한 경우가 많았어요">과열</span>`
+    : "";
+}
+
 function miniBar(label, part) {
   const ratio = part.max ? part.score / part.max : 0;
   return `<div>
@@ -281,7 +288,7 @@ function cardHtml(p, { tag = null, rank = null, extra = "", streak = null, badge
   return `<button class="card" data-code="${esc(p.code)}">
     <div class="card-top">
       <div>
-        <div class="card-name">${rank ? `<span class="rank">${rank}</span>` : ""}${esc(p.name)}${streakBadge}${badge}</div>
+        <div class="card-name">${rank ? `<span class="rank">${rank}</span>` : ""}${esc(p.name)}${streakBadge}${badge}${overheatBadge(p.score)}</div>
         <div class="card-meta">${esc(p.code)} · ${esc(p.market)}${tag ? ` · <span class="tag">${esc(tag)}</span>` : ""}${extra}</div>
       </div>
       ${ring(p.score.total, p.score.grade)}
@@ -1513,6 +1520,11 @@ async function openDetail(code) {
           ? ""
           : `<span class="sub">일부 항목은 데이터가 없어 제외하고 환산했어요</span>`
     }</div>
+    ${
+      s.score.overheat
+        ? `<p class="overheat-note"><b>단기 과열</b> (${esc(s.score.overheat)}) · 지난 1년 기록에서 이런 종목은 20일 뒤 시장보다 약한 경우가 많았어요. 점수가 높아도 조심해서 보세요.</p>`
+        : ""
+    }
     <div class="score-grid">${scoreColumn("기술", s.score.technical)}${scoreColumn("수급", s.score.supply)}${scoreColumn("기본", s.score.basic)}</div>
 
     ${fundamentalsSection(s.fundamentals, s.price)}
