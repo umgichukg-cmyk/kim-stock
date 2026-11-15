@@ -14,6 +14,8 @@
   --institution: #7b5cd6;
   --individual: #19a58a;
   --shadow: 0 1px 2px rgba(60, 30, 10, 0.04), 0 4px 16px rgba(60, 30, 10, 0.05);
+  --ico: #1e3a5f;
+  --ico2: #2aa7e0;
   --radius: 14px;
   color-scheme: light;
 }
@@ -34,6 +36,8 @@
     --foreign: #ff8a45;
     --institution: #a28bff;
     --individual: #35c9a8;
+    --ico: #8aa8c8;
+    --ico2: #4ab8f0;
     --shadow: none;
     color-scheme: dark;
   }
@@ -99,10 +103,11 @@ h2 { margin: 0; font-size: 17px; font-weight: 800; }
 .trend-bar.caution { border-left-color: var(--accent); }
 .trend-bar.down { border-left-color: var(--down); }
 .trend-state { font-weight: 700; white-space: nowrap; }
-.trend-state b { margin-left: 4px; padding: 2px 9px; border-radius: 7px; color: #fff; font-weight: 800; background: var(--muted); }
-.trend-bar.up .trend-state b { background: var(--up); }
-.trend-bar.caution .trend-state b { background: var(--accent); }
-.trend-bar.down .trend-state b { background: var(--down); }
+/* 배지는 연한 바탕 + 진한 글자 + ▲ ● ▼ */
+.trend-state b { margin-left: 4px; padding: 2px 9px; border-radius: 7px; font-weight: 800; color: var(--muted); background: var(--surface-2); }
+.trend-bar.up .trend-state b { color: var(--up); background: color-mix(in srgb, var(--up) 13%, var(--surface)); }
+.trend-bar.caution .trend-state b { color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, var(--surface)); }
+.trend-bar.down .trend-state b { color: var(--down); background: color-mix(in srgb, var(--down) 13%, var(--surface)); }
 .trend-hint { flex: 1; min-width: 180px; color: var(--muted); }
 .trend-gap { color: var(--muted); white-space: nowrap; }
 .market { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
@@ -123,7 +128,12 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 /* 탭 */
 /* 탭 9개를 옆으로 넘기지 않고 바둑판으로 모두 보여줌 (PC 5칸 · 태블릿 3칸 · 휴대폰은 선택 상자) */
 .tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: 0 0 14px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
-.tab { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 36px; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-weight: 700; }
+.tab { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; height: 36px; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-weight: 700; }
+.tab span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 아이콘: 남색 채움 + 하늘색 포인트 (고른 탭 위에서는 흰색) */
+.ico { flex: none; width: 18px; height: 18px; }
+.ico-title { float: left; width: 24px; height: 24px; margin: 1px 8px 0 0; }
+.tab[aria-selected="true"] { --ico: #fff; --ico2: #ffe3cf; }
 .tab:hover { color: var(--text); background: var(--surface-2); }
 .tab[aria-selected="true"] { background: var(--accent); color: #fff; }
 /* 휴대폰 메뉴: 상단 "김가네 주식" 옆 주황 선택 상자 (☰ 표시와 동그란 화살표, 화면을 내려도 상단에 붙어 있음) */

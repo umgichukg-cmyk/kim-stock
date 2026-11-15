@@ -87,6 +87,19 @@ function miniBar(label, part) {
 // ---------- 시장 지표 ----------
 
 // 시장 상태: 코스피·코스닥이 20일선 위인지 (둘 다 위 상승 / 하나만 주의 / 둘 다 아래 하락)
+// 화면마다 붙는 아이콘 (index.html 맨 위 그림 묶음의 id)
+const VIEW_ICONS = { krlive: "live", themes: "circles", top30: "rank", briefing: "globe", krbriefing: "news", krthemes: "grid", limits: "updown", ipo: "calendar", signals: "search", watch: "star" };
+const viewIcon = (view, cls = "") => `<svg class="ico ${cls}" aria-hidden="true"><use href="#i-${VIEW_ICONS[view]}"/></svg>`;
+// 탭 글자 앞과 각 화면 첫 제목 앞에 아이콘을 붙임 (제목 글자는 나중에 바뀌므로 제목 밖에 둠)
+function addViewIcons() {
+  for (const [view] of Object.entries(VIEW_ICONS)) {
+    const tab = document.querySelector(`.tab[data-view="${view}"]`);
+    if (tab && !tab.querySelector(".ico")) tab.innerHTML = `${viewIcon(view)}<span>${esc(tab.textContent)}</span>`;
+    const h2 = document.querySelector(`#view-${view} h2`);
+    if (h2 && !h2.previousElementSibling?.classList.contains("ico")) h2.insertAdjacentHTML("beforebegin", viewIcon(view, "ico-title"));
+  }
+}
+const TREND_MARK = { up: "▲", caution: "●", down: "▼" };
 const TREND_HINT = {
   up: "코스피·코스닥 모두 20일선 위예요",
   caution: "코스피·코스닥 중 하나만 20일선 위예요",
@@ -100,7 +113,7 @@ function renderMarketTrend(t) {
   el.className = `trend-bar ${t.state}`;
   el.title = "지난 1년 기록에서 두 지수가 모두 20일선 위일 때 매수 신호 성적이 가장 나았어요. 꺾이기 직전은 알려주지 못해요.";
   const parts = t.indices.map((i) => `${esc(i.name)} <b class="num ${i.above ? "up" : "down"}">${i.gapPct >= 0 ? "+" : ""}${i.gapPct.toFixed(1)}%</b>`).join(" · ");
-  el.innerHTML = `<span class="trend-state">시장 상태 <b>${esc(t.label)}</b></span><span class="trend-hint">${TREND_HINT[t.state]}</span><span class="trend-gap">20일선 대비 ${parts}</span>`;
+  el.innerHTML = `<span class="trend-state">시장 상태 <b>${TREND_MARK[t.state] ?? ""} ${esc(t.label)}</b></span><span class="trend-hint">${TREND_HINT[t.state]}</span><span class="trend-gap">20일선 대비 ${parts}</span>`;
 }
 
 function renderMarket(items) {
@@ -1159,6 +1172,7 @@ document.querySelector(".tabs").addEventListener("click", (e) => {
 
 // 휴대폰용 선택 상자: 탭 목록을 그대로 옮겨 담음
 $("#view-select").innerHTML = VIEWS.map((v) => `<option value="${v}">${$(`#tab-${v}`).textContent}</option>`).join("");
+addViewIcons();
 $("#view-select").addEventListener("change", (e) => {
   showView(e.target.value);
   // 시장 지표 차트는 건너뛰고 고른 화면의 내용부터 보이게 (상단 고정 줄 높이만큼 띄움)
