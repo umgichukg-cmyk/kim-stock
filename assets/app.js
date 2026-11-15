@@ -850,6 +850,21 @@ setInterval(() => {
 
 let limitsLoaded = 0;
 
+// 상한가·하한가 종목이 움직인 배경: 그날 같이 움직인 관련 테마, 공시, 뉴스 (저녁 계산이 붙여 둔 참고 자료)
+function limitReasonsHtml(up, down) {
+  const row = (s, side) => {
+    const r = s.reason;
+    const themes = (r?.themes ?? []).map((t) => `<span class="lr-theme">${esc(t.name)} <b class="num ${dir(t.changePct)}">${pct(t.changePct, 1)}</b></span>`).join("");
+    const link = (x, tag) => `<a href="${esc(x.url)}" target="_blank" rel="noopener"><span class="lr-tag">${tag}</span>${esc(x.title)}${x.press ? ` <small>${esc(x.press)}</small>` : ""}</a>`;
+    const lines = [...(r?.disclosures ?? []).map((d) => link(d, "공시")), ...(r?.news ?? []).map((n) => link(n, "뉴스"))];
+    const body = themes || lines.length ? `${themes ? `<div class="lr-themes">${themes}</div>` : ""}${lines.join("")}` : `<p class="sub">그날 관련 테마·공시·뉴스를 찾지 못했어요.</p>`;
+    return `<li><button class="lr-name" data-code="${esc(s.code)}"><span class="tbadge ${side === "up" ? "new" : "turn"}">${side === "up" ? "상한" : "하한"}</span><b>${esc(s.name)}</b><span class="num ${dir(s.changePct)}">${pct(s.changePct, 1)}</span></button><div class="lr-body">${body}</div></li>`;
+  };
+  const all = [...up.map((s) => row(s, "up")), ...down.map((s) => row(s, "down"))];
+  if (!all.length || ![...up, ...down].some((s) => s.reason)) return "";
+  return `<div class="limit-reasons"><p class="col-title">왜 움직였나 <span class="sub">그날 같이 움직인 관련 테마 · 전날~당일 공시와 뉴스 · 자동으로 모은 참고 자료라 실제 이유와 다를 수 있어요</span></p><ul>${all.join("")}</ul></div>`;
+}
+
 async function loadLimits() {
   if (Date.now() - limitsLoaded < 600_000) return;
   $("#limits").innerHTML = `<div class="skeleton" style="height:160px"></div><div class="skeleton" style="height:160px"></div>`;
@@ -865,6 +880,7 @@ async function loadLimits() {
     const empty = (label) => `<div><p class="col-title">${label}</p><p class="sub">${label} 마감 종목이 없어요.</p></div>`;
     const up = b.limits?.upper || [];
     const down = b.limits?.lower || [];
+    $("#limit-reasons").innerHTML = limitReasonsHtml(up, down);
     $("#limits").innerHTML =
       (up.length ? rankList(`상한가 ${up.length}종목`, up, val) : empty("상한가")) +
       (down.length ? rankList(`하한가 ${down.length}종목`, down, val) : empty("하한가"));
@@ -1824,7 +1840,7 @@ async function openMarket(id, range = "1d") {
 // ---------- 이벤트 ----------
 
 document.addEventListener("click", (e) => {
-  const card = e.target.closest(".card[data-code], .rank-list [data-code]");
+  const card = e.target.closest(".card[data-code], .rank-list [data-code], .lr-name[data-code]");
   if (card) return openDetail(card.dataset.code);
 
   const ind = e.target.closest("[data-industry]");

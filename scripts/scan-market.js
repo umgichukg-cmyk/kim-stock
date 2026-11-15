@@ -23,6 +23,8 @@ import {
   getThemes,
   getThemeStocks,
   getIndexDaily,
+  getNews,
+  getDisclosures,
 } from "../api/_lib/naver.js";
 import { scoreStock } from "../api/_lib/score.js";
 import { findSignals, SIGNAL_RULE } from "../api/_lib/signals.js";
@@ -212,6 +214,9 @@ async function main() {
   // 6) 한국 테마 (같은 기준일)
   const krThemes = await buildKrThemes({ stocks: okStocks, basisDate, liveToday });
 
+  // 상한가·하한가 종목마다 움직인 배경 (관련 테마·공시·뉴스)
+  await addLimitReasons({ briefing, krThemes, calendar, basisDate });
+
   // 브리핑·테마 목록 종목에 종합 점수 붙이기. 위에서 계산한 종목은 그대로 쓰고,
   // 거래대금 조건 밖이라 계산하지 않은 종목(신규 상장, 거래가 적은 종목 등)은 여기서 계산
   const scoreByCode = new Map(scored.filter((s) => !s.error).map((s) => [s.code, s.score]));
@@ -292,6 +297,43 @@ async function buildSignals({ scored, calendar, basisDate }) {
   const kept = [...days.values()].sort((a, b) => b.date.localeCompare(a.date)).filter((d) => calendar.slice(0, SIGNAL_DAYS).includes(d.date));
   for (const d of kept) for (const it of d.items) it.last = lastPrice.get(it.code) ?? null;
   return { basisDate, generatedAt: new Date().toISOString(), rule: SIGNAL_RULE, days: kept };
+}
+
+// 상한가·하한가 종목이 왜 움직였는지 짐작할 자료를 붙임 (정답이 아니라 참고용)
+//  - themes: 종목이 속한 테마 중 그날 가장 많이 움직인 테마 (상한가는 오른 테마, 하한가는 내린 테마)
+//  - disclosures: 기준일과 그 전 거래일에 나온 공시
+//  - news: 기준일과 그 전 거래일 뉴스 (제목에 종목명이 있는 기사 먼저)
+async function addLimitReasons({ briefing, krThemes, calendar, basisDate }) {
+  const prevDay = calendar[1] ?? basisDate;
+  const recent = (ymd) => ymd >= prevDay && ymd <= basisDate;
+  for (const [side, list] of Object.entries(briefing.limits)) {
+    const up = side === "upper";
+    await pool(
+      list,
+      4,
+      async (s) => {
+        const themes = (krThemes?.themes ?? [])
+          .filter((t) => (up ? t.changePct > 0 : t.changePct < 0) && t.members?.some((m) => m.code === s.code))
+          .sort((a, b) => (up ? b.changePct - a.changePct : a.changePct - b.changePct))
+          .slice(0, 3)
+          .map((t) => ({ name: t.name, changePct: t.changePct }));
+        const [disclosures, news] = await Promise.all([getDisclosures(s.code, 10).catch(() => []), getNews(s.code, 10).catch(() => [])]);
+        // 공시 제목 앞의 "(주)회사이름 " 떼기
+        const stripCompany = (title) => {
+          const t = title.replace(/^\(주\)\s*/, "");
+          return t.startsWith(s.name) ? t.slice(s.name.length).trim() : t;
+        };
+        const dayNews = news.filter((n) => recent(n.time.slice(0, 10).replace(/-/g, "")));
+        const named = dayNews.filter((n) => n.title.includes(s.name));
+        s.reason = {
+          themes,
+          disclosures: disclosures.filter((d) => recent(d.date)).slice(0, 2).map((d) => ({ title: stripCompany(d.title), date: d.date, url: d.url })),
+          news: (named.length ? named : dayNews).slice(0, 2).map((n) => ({ title: n.title, press: n.press, url: n.url })),
+        };
+      },
+      "상한가·하한가 배경"
+    );
+  }
 }
 
 // 날짜별 기록 파일 읽기. 파일이 아직 없을 때만 빈 기록으로 시작하고,

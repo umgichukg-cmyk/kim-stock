@@ -41,6 +41,16 @@ const decodeEntities = (s) =>
     .replace(/&gt;/g, ">")
     .replace(/&amp;/g, "&");
 
+// 종목 공시 (최신 순). date는 YYYYMMDD
+export async function getDisclosures(code, count = 10) {
+  const rows = await fetchJson(`https://m.stock.naver.com/api/stock/${code}/disclosure?page=1&pageSize=${count}`, { headers: REFERER });
+  return (Array.isArray(rows) ? rows : []).map((r) => ({
+    title: decodeEntities(String(r.title ?? "")),
+    date: String(r.datetime ?? "").slice(0, 10).replace(/-/g, ""),
+    url: `https://m.stock.naver.com/domestic/stock/${code}/notice/${r.disclosureId}`,
+  }));
+}
+
 export async function getNews(code, count = 10) {
   const groups = await fetchJson(`https://m.stock.naver.com/api/news/stock/${code}?pageSize=${count}&page=1`, {
     headers: REFERER,
