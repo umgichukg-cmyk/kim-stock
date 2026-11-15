@@ -42,11 +42,13 @@
         <span class="brand-mark" aria-hidden="true"></span>
         <span>김가네 주식</span>
       </a>
-      <!-- 휴대폰에서는 탭 대신 상단 고정 선택 상자 (보기 목록은 아래 탭에서 채움, 아이폰에서는 휠로 고름) -->
-      <label class="view-select">
-        <span class="view-select-tag" aria-hidden="true"><i></i></span>
-        <select id="view-select" aria-label="화면 선택"></select>
-      </label>
+      <!-- 휴대폰에서는 탭 대신 상단 고정 메뉴 단추 (누르면 아래 아이콘 메뉴가 펼쳐짐) -->
+      <div class="view-select">
+        <button type="button" id="view-menu-btn" aria-haspopup="true" aria-expanded="false" aria-controls="view-menu">
+          <span class="view-select-tag" aria-hidden="true"><i></i></span>
+          <span id="view-menu-label">화면 선택</span>
+        </button>
+      </div>
       <form class="search" id="search-form" role="search">
         <input id="search-input" maxlength="30" autocomplete="off" placeholder="종목명 또는 코드 (예: 삼성전자, 005930)" aria-label="종목명 또는 종목코드" role="combobox" aria-expanded="false" aria-controls="suggest">
         <button type="submit">분석</button>
@@ -60,7 +62,10 @@
         </button>
       </div>
     </div>
+    <!-- 휴대폰 메뉴: 상단 주황 단추를 누르면 아이콘 메뉴가 아래로 펼쳐짐 -->
+    <div class="view-menu" id="view-menu" role="menu" aria-label="화면 선택" hidden></div>
   </header>
+  <div class="view-menu-dim" id="view-menu-dim" hidden></div>
 
   <main class="wrap">
     <section aria-label="시장 지표">

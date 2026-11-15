@@ -1145,7 +1145,8 @@ function showView(view) {
     $(`#view-${v}`).hidden = v !== view;
     $(`#tab-${v}`).setAttribute("aria-selected", v === view);
   }
-  $("#view-select").value = view;
+  $("#view-menu-label").textContent = $(`#tab-${view}`).textContent;
+  for (const b of document.querySelectorAll("#view-menu [data-view]")) b.setAttribute("aria-current", b.dataset.view === view);
   if (view === "krlive") loadKrLive({ quiet: true });
   if (view === "top30") loadTop30();
   if (view === "limits") loadLimits();
@@ -1170,13 +1171,26 @@ document.querySelector(".tabs").addEventListener("click", (e) => {
   if (tab) showView(tab.dataset.view);
 });
 
-// 휴대폰용 선택 상자: 탭 목록을 그대로 옮겨 담음
-$("#view-select").innerHTML = VIEWS.map((v) => `<option value="${v}">${$(`#tab-${v}`).textContent}</option>`).join("");
+// 휴대폰용 아이콘 메뉴: 탭 목록을 그대로 옮겨 담음 (휴대폰 기본 선택 창 대신 우리 디자인으로)
+$("#view-menu").innerHTML = VIEWS.map((v) => `<button type="button" role="menuitem" data-view="${v}">${viewIcon(v)}<span>${esc($(`#tab-${v}`).textContent)}</span></button>`).join("");
 addViewIcons();
-$("#view-select").addEventListener("change", (e) => {
-  showView(e.target.value);
+function toggleViewMenu(open) {
+  $("#view-menu").hidden = !open;
+  $("#view-menu-dim").hidden = !open;
+  $("#view-menu-btn").setAttribute("aria-expanded", open);
+}
+$("#view-menu-btn").addEventListener("click", () => toggleViewMenu($("#view-menu").hidden));
+$("#view-menu-dim").addEventListener("click", () => toggleViewMenu(false));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("#view-menu").hidden) toggleViewMenu(false);
+});
+$("#view-menu").addEventListener("click", (e) => {
+  const item = e.target.closest("[data-view]");
+  if (!item) return;
+  toggleViewMenu(false);
+  showView(item.dataset.view);
   // 시장 지표 차트는 건너뛰고 고른 화면의 내용부터 보이게 (상단 고정 줄 높이만큼 띄움)
-  const top = $(`#view-${e.target.value}`).getBoundingClientRect().top + scrollY - $(".topbar").offsetHeight - 8;
+  const top = $(`#view-${item.dataset.view}`).getBoundingClientRect().top + scrollY - $(".topbar").offsetHeight - 8;
   scrollTo({ top: Math.max(0, top), behavior: "smooth" });
 });
 
