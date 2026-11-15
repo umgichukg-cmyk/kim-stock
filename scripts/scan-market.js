@@ -244,7 +244,7 @@ async function main() {
   for (const list of lists) {
     for (const m of list) {
       const sc = scoreByCode.get(m.code);
-      m.score = sc ? { total: sc.total, grade: sc.grade } : null;
+      m.score = sc ? { total: sc.total, grade: sc.grade, overheat: sc.overheat } : null; // 과열 이유도 같이 (한 줄 목록의 과열 배지용)
     }
   }
 

@@ -509,12 +509,13 @@ function rankList(title, items, value, attrs = (s) => (s.code ? `data-code="${es
     .join("")}</ol></div>`;
 }
 
-// 종합 점수 색 상자
+// 종합 점수 색 상자 (과열이면 그 앞에 과열 배지)
 function scoreBadge(s) {
   const t = s.score?.total;
-  if (t == null) return `<span class="sc na" title="${esc(s.score?.grade || "점수 없음")}">-</span>`;
+  const hot = overheatBadge(s.score).trim();
+  if (t == null) return `${hot}<span class="sc na" title="${esc(s.score?.grade || "점수 없음")}">-</span>`;
   const level = t >= 75 ? "hi" : t >= 60 ? "good" : t >= 45 ? "mid" : "low";
-  return `<span class="sc ${level}" title="종합 ${t}점 · ${esc(s.score.grade)}">${t}</span>`;
+  return `${hot}<span class="sc ${level}" title="종합 ${t}점 · ${esc(s.score.grade)}">${t}</span>`;
 }
 
 const capLabel = (eok) => (eok == null ? "-" : eok >= 10000 ? `${(eok / 10000).toFixed(1)}조` : `${Math.round(eok).toLocaleString("ko-KR")}억`);
