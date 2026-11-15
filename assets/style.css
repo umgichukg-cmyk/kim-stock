@@ -92,6 +92,19 @@ h2 { margin: 0; font-size: 17px; font-weight: 800; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---------- 시장 지표 ---------- */
+/* 시장 상태 줄: 상승(빨강) · 주의(주황) · 하락(파랑) */
+.trend-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin: 18px 0 -6px; padding: 10px 14px; border: 1px solid var(--border); border-left: 5px solid var(--muted); border-radius: var(--radius); background: var(--surface); font-size: 13px; }
+.trend-bar[hidden] { display: none; }
+.trend-bar.up { border-left-color: var(--up); }
+.trend-bar.caution { border-left-color: var(--accent); }
+.trend-bar.down { border-left-color: var(--down); }
+.trend-state { font-weight: 700; white-space: nowrap; }
+.trend-state b { margin-left: 4px; padding: 2px 9px; border-radius: 7px; color: #fff; font-weight: 800; background: var(--muted); }
+.trend-bar.up .trend-state b { background: var(--up); }
+.trend-bar.caution .trend-state b { background: var(--accent); }
+.trend-bar.down .trend-state b { background: var(--down); }
+.trend-hint { flex: 1; min-width: 180px; color: var(--muted); }
+.trend-gap { color: var(--muted); white-space: nowrap; }
 .market { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
 .mkt { position: relative; display: block; width: 100%; padding: 12px 14px 10px; text-align: left; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; transition: transform 0.15s, border-color 0.15s; }
 button.mkt:hover { transform: translateY(-2px); border-color: var(--accent); }

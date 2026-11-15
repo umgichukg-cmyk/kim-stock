@@ -86,6 +86,23 @@ function miniBar(label, part) {
 
 // ---------- 시장 지표 ----------
 
+// 시장 상태: 코스피·코스닥이 20일선 위인지 (둘 다 위 상승 / 하나만 주의 / 둘 다 아래 하락)
+const TREND_HINT = {
+  up: "코스피·코스닥 모두 20일선 위예요",
+  caution: "코스피·코스닥 중 하나만 20일선 위예요",
+  down: "코스피·코스닥 모두 20일선 아래예요. 새로 들어가기보다 쉬어 가는 구간",
+};
+
+function renderMarketTrend(t) {
+  const el = $("#market-trend");
+  el.hidden = !t;
+  if (!t) return;
+  el.className = `trend-bar ${t.state}`;
+  el.title = "지난 1년 기록에서 두 지수가 모두 20일선 위일 때 매수 신호 성적이 가장 나았어요. 꺾이기 직전은 알려주지 못해요.";
+  const parts = t.indices.map((i) => `${esc(i.name)} <b class="num ${i.above ? "up" : "down"}">${i.gapPct >= 0 ? "+" : ""}${i.gapPct.toFixed(1)}%</b>`).join(" · ");
+  el.innerHTML = `<span class="trend-state">시장 상태 <b>${esc(t.label)}</b></span><span class="trend-hint">${TREND_HINT[t.state]}</span><span class="trend-gap">20일선 대비 ${parts}</span>`;
+}
+
 function renderMarket(items) {
   $("#market").innerHTML = items
     .map((m) => {
@@ -336,7 +353,10 @@ async function load({ quiet = false } = {}) {
 
   const [market, picks] = await Promise.allSettled([getJson("/api/market"), getJson("/api/picks")]);
 
-  if (market.status === "fulfilled") renderMarket(market.value.items);
+  if (market.status === "fulfilled") {
+    renderMarket(market.value.items);
+    renderMarketTrend(market.value.trend);
+  }
   else if (!quiet) renderError("#market", market.reason.message);
 
   if (picks.status === "fulfilled") {

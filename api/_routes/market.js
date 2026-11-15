@@ -2,10 +2,12 @@
 import { MARKET } from "../../config/themes.js";
 import { getIntraday } from "../_lib/yahoo.js";
 import { getIndexQuote } from "../_lib/naver.js";
+import { getMarketTrend } from "../_lib/market-trend.js";
 import { sendJson, sendError } from "../_lib/http.js";
 
 export default async function handler(req, res) {
   try {
+    const trendP = getMarketTrend().catch(() => null); // 시장 상태는 못 받아도 지표는 보여줌
     const settled = await Promise.allSettled(
       MARKET.map(async (m) => {
         const [y, n] = await Promise.all([getIntraday(m.symbol), m.naver ? getIndexQuote(m.naver).catch(() => null) : null]);
@@ -19,7 +21,7 @@ export default async function handler(req, res) {
         ? { ...m, ...r.value, ok: true }
         : { ...m, ok: false, error: r.reason?.message || String(r.reason) };
     });
-    sendJson(res, 200, { updatedAt: new Date().toISOString(), items }, 30);
+    sendJson(res, 200, { updatedAt: new Date().toISOString(), items, trend: await trendP }, 30);
   } catch (e) {
     sendError(res, e);
   }
