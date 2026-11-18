@@ -1474,10 +1474,15 @@ const ymdShort = (ymd) => `${+ymd.slice(4, 6)}/${+ymd.slice(6, 8)}`;
 
 async function loadScoreTrend(s) {
   const box = $("#score-trend");
-  const [data, watch] = await Promise.all([
+  const [data, watch, sig] = await Promise.all([
     getJson(`/api/score-history?code=${encodeURIComponent(s.code)}`).catch((e) => ({ error: e.message })),
     account.currentUser() ? account.getWatch(s.code).catch(() => null) : null,
+    signalsData ?? getJson("/api/signals").catch(() => null),
   ]);
+  // 조건 검색에 걸린 날 (최근 60거래일 기록, 오래된 날 → 최근 날)
+  const hits = (sig?.days ?? [])
+    .flatMap((d) => d.items.filter((it) => it.code === s.code).map((it) => ({ d: d.date, strict: it.strict })))
+    .sort((a, b) => a.d.localeCompare(b.d));
   if (!box.isConnected || $("#memo-section")?.dataset.code !== s.code) return; // 그사이 다른 종목을 열었으면 무시
   if (data.error) {
     box.innerHTML = `<div class="state">점수 기록을 불러오지 못했어요.<br><small>${esc(data.error)}</small></div>`;
@@ -1491,7 +1496,7 @@ async function loadScoreTrend(s) {
 
   const show = (n) => {
     for (const b of $("#trend-chips").children) b.setAttribute("aria-selected", String(Number(b.dataset.trend) === n));
-    box.innerHTML = scoreTrendHtml(points.slice(-n), n, added, box.clientWidth || 340);
+    box.innerHTML = scoreTrendHtml(points.slice(-n), n, added, box.clientWidth || 340, hits);
   };
   $("#trend-chips").onclick = (e) => {
     const b = e.target.closest("[data-trend]");
@@ -1500,7 +1505,7 @@ async function loadScoreTrend(s) {
   show(30);
 }
 
-function scoreTrendHtml(pts, n, added, width) {
+function scoreTrendHtml(pts, n, added, width, hits = []) {
   if (!pts.some((p) => !p.live)) return `<div class="state">아직 점수 기록이 없어요.<br><small>평일 저녁 자동 계산 때마다 거래일 하루에 한 칸씩 쌓여요.</small></div>`;
   const vals = pts.map((p) => p.v);
   const hi = Math.max(...vals);
@@ -1530,8 +1535,13 @@ function scoreTrendHtml(pts, n, added, width) {
     ai >= 0 && !(ai === 0 && added.d < pts[0].d)
       ? `<line x1="${x(ai)}" x2="${x(ai)}" y1="${pad.t}" y2="${H - pad.b}" class="trend-added"/><text x="${x(ai) + 4}" y="${pad.t + 10}" class="trend-axis accent">등록</text>`
       : "";
+  // 조건 검색에 걸린 날: 그날 위치에 초록 세로 점선 + 아래쪽에 "검색" (엄격 조건이면 진하게)
+  const hitIdx = new Map(hits.map((h) => [pts.findIndex((p) => p.d === h.d), h]).filter(([i]) => i >= 0));
+  const sigMark = [...hitIdx]
+    .map(([i, h]) => `<line x1="${x(i)}" x2="${x(i)}" y1="${pad.t}" y2="${H - pad.b}" class="trend-signal${h.strict ? " strict" : ""}"><title>${ymdShort(h.d)} 조건 검색 (${h.strict ? "엄격" : "넓게"})</title></line><text x="${x(i) + 4}" y="${H - pad.b - 4}" class="trend-axis trend-signal-label">검색</text>`)
+    .join("");
   const svg = `<svg class="trend-svg" width="${width}" height="${H}" viewBox="0 0 ${width} ${H}" role="img" aria-label="최근 ${pts.length}거래일 종합 점수">
-    ${grid}${addedMark}
+    ${grid}${addedMark}${sigMark}
     <polyline points="${line}" class="trend-line"/>${dots}
     <text x="${pad.l}" y="${H - 6}" class="trend-axis">${ymdShort(pts[0].d)}</text>
     <text x="${width - pad.r}" y="${H - 6}" text-anchor="end" class="trend-axis">${pts.at(-1).live ? "지금" : ymdShort(pts.at(-1).d)}</text>
@@ -1562,7 +1572,8 @@ function scoreTrendHtml(pts, n, added, width) {
       const prev = arr[i + 1];
       const dv = prev ? p.v - prev.v : null;
       const parts = hasParts ? [0, 1, 2].map((k) => partCell(p, prev, k)).join("") : "";
-      return `<tr><td>${p.live ? "지금" : `${ymdShort(p.d)}(${WEEKDAY[new Date(dayUtc(p.d)).getUTCDay()]})`}</td><td class="num">${p.v}</td><td class="num ${dv ? (dv > 0 ? "up" : "down") : ""}">${dv == null ? "" : dv ? `${dv > 0 ? "▲" : "▼"}${Math.abs(dv)}` : "-"}</td>${parts}</tr>`;
+      const hit = hits.find((h) => h.d === p.d);
+      return `<tr><td>${p.live ? "지금" : `${ymdShort(p.d)}(${WEEKDAY[new Date(dayUtc(p.d)).getUTCDay()]})`}${hit ? ` <span class="trend-signal-tag">검색</span>` : ""}</td><td class="num">${p.v}</td><td class="num ${dv ? (dv > 0 ? "up" : "down") : ""}">${dv == null ? "" : dv ? `${dv > 0 ? "▲" : "▼"}${Math.abs(dv)}` : "-"}</td>${parts}</tr>`;
     })
     .join("");
   const partHead = hasParts ? `<th>기술 <small>/45</small></th><th>수급 <small>/45</small></th><th>기본 <small>/10</small></th>` : "";
@@ -1574,6 +1585,7 @@ function scoreTrendHtml(pts, n, added, width) {
       ${added?.v != null ? statBox("등록 때", `${added.v}점 · ${ymdShort(added.d)}`) : ""}
     </div>
     <div class="trend-box">${svg}</div>
+    ${hits.length ? `<p class="sub trend-signal-note"><span class="trend-signal-key"></span>조건 검색에 걸린 날: ${hits.map((h) => `${ymdShort(h.d)}(${h.strict ? "엄격" : "넓게"}${h.d < pts[0].d ? " · 그래프 기간 전" : ""})`).join(" · ")}</p>` : ""}
     ${note}
     <details class="trend-table"><summary>날짜별 점수 보기 (${pts.length}거래일)</summary>
       <table><thead><tr><th>날짜</th><th>점수</th><th>전일 대비</th>${partHead}</tr></thead><tbody>${rows}</tbody></table>

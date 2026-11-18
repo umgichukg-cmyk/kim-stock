@@ -524,6 +524,12 @@ button.live-index:hover { border-color: var(--accent); transform: translateY(-2p
 .trend-live { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
 .trend-grid { stroke: var(--border); stroke-dasharray: 3 3; }
 .trend-added { stroke: var(--accent); stroke-dasharray: 2 3; opacity: .7; }
+.trend-signal { stroke: #16a34a; stroke-dasharray: 3 3; stroke-width: 1.5; opacity: .6; }
+.trend-signal.strict { opacity: 1; stroke-width: 2; }
+.trend-signal-label { fill: #16a34a; }
+.trend-signal-note { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.trend-signal-key { display: inline-block; width: 0; height: 12px; border-left: 2px dashed #16a34a; }
+.trend-signal-tag { font-size: 11px; color: #fff; background: #16a34a; border-radius: 4px; padding: 0 4px; margin-left: 2px; }
 .trend-axis { fill: var(--muted); font-size: 11px; }
 .trend-axis.accent { fill: var(--accent); font-weight: 700; }
 .trend-table { margin-top: 8px; font-size: 13px; }
