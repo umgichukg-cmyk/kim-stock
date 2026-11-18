@@ -168,6 +168,7 @@ async function main() {
       spark: s.candles.slice(-30).map((c) => c.close),
       signals: findSignals(s.candles, flows), // 조건 검색 (수급이 있는 최근 20거래일)
       flowDates: flows.map((f) => f.date),
+      highs: s.candles.slice(-(SIGNAL_DAYS + 5)).map((c) => [c.date, c.high]), // 신호 뒤 최고가 계산용
     };
   };
   const scored = await pool(liquid, CONCURRENCY, scoreOne, "점수");
@@ -204,7 +205,7 @@ async function main() {
     historyDays: Object.keys(history).length,
     counts: { listed: list.length, universe: universe.length, scored: ranked.length, failed: failedCandles + scored.filter((s) => s.error).length },
     excluded,
-    items: top.map(({ signals, flowDates, ...s }, i) => ({ rank: i + 1, streak: streakOf(s.code), ...s })),
+    items: top.map(({ signals, flowDates, highs, ...s }, i) => ({ rank: i + 1, streak: streakOf(s.code), ...s })),
   };
   const signalFile = await buildSignals({ scored, calendar, basisDate });
 
@@ -294,8 +295,15 @@ async function buildSignals({ scored, calendar, basisDate }) {
   }
   // 지금 가격을 붙여 "신호 뒤 수익률"을 볼 수 있게 함
   const lastPrice = new Map(ok.map((s) => [s.code, s.price]));
+  const highsOf = new Map(ok.map((s) => [s.code, s.highs ?? []]));
   const kept = [...days.values()].sort((a, b) => b.date.localeCompare(a.date)).filter((d) => calendar.slice(0, SIGNAL_DAYS).includes(d.date));
-  for (const d of kept) for (const it of d.items) it.last = lastPrice.get(it.code) ?? null;
+  for (const d of kept)
+    for (const it of d.items) {
+      it.last = lastPrice.get(it.code) ?? null;
+      // 신호 다음 날부터 지금까지의 최고가 (장중 고가 기준)
+      const after = (highsOf.get(it.code) ?? []).filter(([date]) => date > d.date).map(([, h]) => h);
+      it.peak = after.length ? Math.max(...after) : null;
+    }
   return { basisDate, generatedAt: new Date().toISOString(), rule: SIGNAL_RULE, days: kept };
 }
 

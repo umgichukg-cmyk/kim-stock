@@ -920,7 +920,8 @@ function renderSignals() {
   ).join("");
   const val = (s) => {
     const since = s.last && s.close ? (s.last / s.close - 1) * 100 : null;
-    return `${s.overheat ? `<span class="tbadge overheat" title="단기 과열">과열</span>` : ""}<span class="vl" style="color:var(--muted)" title="거래량이 직전 20거래일 평균의 몇 배인지">${s.volx}배</span><span class="vl sg-flow" style="color:var(--muted)" title="그날 외국인 · 기관 순매수">외 ${s.foreignEok}억 · 기 ${s.institutionEok}억</span><span class="vl ${dir(s.changePct)}" title="신호 날 등락률">${pct(s.changePct, 1)}</span><span class="vl sg-since ${dir(since)}" title="신호 날 종가 ${won(s.close)}원 → 최근 종가 ${won(s.last)}원">${since == null ? "-" : `이후 ${pct(since, 1)}`}</span>`;
+    const peak = s.peak && s.close ? (s.peak / s.close - 1) * 100 : null;
+    return `${s.overheat ? `<span class="tbadge overheat" title="단기 과열">과열</span>` : ""}<span class="vl" style="color:var(--muted)" title="거래량이 직전 20거래일 평균의 몇 배인지">${s.volx}배</span><span class="vl sg-flow" style="color:var(--muted)" title="그날 외국인 · 기관 순매수">외 ${s.foreignEok}억 · 기 ${s.institutionEok}억</span><span class="vl ${dir(s.changePct)}" title="신호 날 등락률">${pct(s.changePct, 1)}</span><span class="vl sg-since ${dir(since)}" title="신호 날 종가 ${won(s.close)}원 → 최근 종가 ${won(s.last)}원">${since == null ? "-" : `이후 ${pct(since, 1)}`}</span>${peak == null ? "" : `<span class="vl sg-peak ${dir(peak)}" title="신호 다음 날부터 장중 최고가 ${won(s.peak)}원 (신호 날 종가 ${won(s.close)}원 대비)">최고 ${pct(peak, 1)}</span>`}`;
   };
   const days = data.days.map((d) => ({ ...d, items: d.items.filter((s) => signalFilter === "all" || s.strict) }));
   const md = (d) => {

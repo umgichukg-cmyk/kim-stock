@@ -203,7 +203,7 @@ button.mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .sg-market.up { background: var(--up); }
 .sg-market.caution { background: var(--accent); }
 .sg-market.down { background: var(--down); }
-.sg-since { min-width: 74px; text-align: right; }
+.sg-since, .sg-peak { min-width: 74px; text-align: right; }
 @media (max-width: 640px) {
   .sg-flow { display: none; }
 }
