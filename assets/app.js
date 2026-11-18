@@ -923,13 +923,27 @@ function renderSignals() {
     return `${s.overheat ? `<span class="tbadge overheat" title="단기 과열">과열</span>` : ""}<span class="vl" style="color:var(--muted)" title="거래량이 직전 20거래일 평균의 몇 배인지">${s.volx}배</span><span class="vl sg-flow" style="color:var(--muted)" title="그날 외국인 · 기관 순매수">외 ${s.foreignEok}억 · 기 ${s.institutionEok}억</span><span class="vl ${dir(s.changePct)}" title="신호 날 등락률">${pct(s.changePct, 1)}</span><span class="vl sg-since ${dir(since)}" title="신호 날 종가 ${won(s.close)}원 → 최근 종가 ${won(s.last)}원">${since == null ? "-" : `이후 ${pct(since, 1)}`}</span>`;
   };
   const days = data.days.map((d) => ({ ...d, items: d.items.filter((s) => signalFilter === "all" || s.strict) }));
-  const html = days
-    .filter((d, i) => d.items.length || i === 0)
-    .map((d) => {
-      const date = new Date(`${d.date.slice(0, 4)}-${d.date.slice(4, 6)}-${d.date.slice(6, 8)}T12:00:00`);
+  const md = (d) => {
+    const date = new Date(`${d.date.slice(0, 4)}-${d.date.slice(4, 6)}-${d.date.slice(6, 8)}T12:00:00`);
+    return `${date.getMonth() + 1}/${date.getDate()}(${"일월화수목금토"[date.getDay()]})`;
+  };
+  // 종목이 없는 날은 이어진 날끼리 한 줄로 묶어 날짜가 빠져 보이지 않게 함
+  const blocks = [];
+  for (const d of days) {
+    const last = blocks.at(-1);
+    if (!d.items.length && last?.empty) last.days.push(d);
+    else blocks.push(d.items.length ? { day: d } : { empty: true, days: [d] });
+  }
+  const html = blocks
+    .map((b) => {
+      if (b.empty) {
+        const names = b.days.map(md);
+        const label = names.length > 3 ? `${names[0]} ~ ${names.at(-1)} (${names.length}일)` : names.join(" · ");
+        return `<p class="sg-empty">${label} <span>조건에 맞는 종목 없음</span></p>`;
+      }
+      const d = b.day;
       const state = d.market ? `<span class="sg-market ${d.market}" title="그날 코스피·코스닥이 20일선 위였는지">시장 ${MARKET_STATE[d.market]}</span>` : "";
-      const title = `${date.getMonth() + 1}/${date.getDate()}(${"일월화수목금토"[date.getDay()]}) ${state} <span class="sub">${d.items.length}종목</span>`;
-      return d.items.length ? rankList(title, d.items, val) : `<div><p class="col-title">${title}</p><p class="sub">조건에 맞는 종목이 없어요.</p></div>`;
+      return rankList(`${md(d)} ${state} <span class="sub">${d.items.length}종목</span>`, d.items, val);
     })
     .join("");
   $("#signals").innerHTML = `<div class="sg-days">${html}</div>`;
