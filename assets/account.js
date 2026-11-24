@@ -77,7 +77,17 @@ export const hasBroker = () => !!relayUrl();
 export async function getBrokerBalance() {
   const sb = await getClient();
   const ask = async (session) => {
-    const res = await fetch(`${relayUrl()}/balance`, { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` } });
+    // 휴대폰이 화면을 막 켰거나 와이파이·데이터가 바뀌는 순간에는 연결 자체가 실패할 수 있어 2초 뒤 한 번 더 (15초 넘으면 포기)
+    let res;
+    for (let tryNo = 0; ; tryNo++) {
+      try {
+        res = await fetch(`${relayUrl()}/balance`, { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` }, signal: AbortSignal.timeout?.(15000) });
+        break;
+      } catch (e) {
+        if (tryNo >= 1) return { ok: false, status: 0, error: e.name === "TimeoutError" ? "중계 서버가 15초 안에 답하지 않았어요" : "중계 서버에 연결하지 못했어요 (인터넷 연결이나 서버 상태 확인 필요)" };
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
     const body = await res.json().catch(() => ({}));
     return res.ok ? { ok: true, data: body } : { ok: false, status: res.status, error: body.error || `HTTP ${res.status}` };
   };
