@@ -2321,6 +2321,11 @@ async function loadBroker() {
     return;
   }
   box.hidden = false;
+  // 중계 서버는 운영 주소 두 곳에서 오는 요청만 받아요 (미리보기·로컬 주소에서는 보안상 막힘)
+  if (!["kim-stock-liart.vercel.app", "kim-stock-kimga.vercel.app"].includes(location.hostname)) {
+    box.innerHTML = `<div class="broker-head"><h2>내 키움 계좌</h2></div><div class="state">이 주소(미리보기)에서는 보안상 계좌를 볼 수 없어요.<br><small>운영 주소 kim-stock-liart.vercel.app 에서 확인해 주세요.</small></div>`;
+    return;
+  }
   box.innerHTML = `<div class="skeleton" style="height:120px"></div>`;
   let r;
   try {
