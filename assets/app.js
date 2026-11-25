@@ -939,7 +939,7 @@ function renderSignals() {
     .map((b) => {
       if (b.empty) {
         const names = b.days.map(md);
-        const label = names.length > 3 ? `${names[0]} ~ ${names.at(-1)} (${names.length}일)` : names.join(" · ");
+        const label = names.length > 3 ? `${names.at(-1)} ~ ${names[0]} (${names.length}거래일)` : [...names].reverse().join(" · ");
         return `<p class="sg-empty">${label} <span>조건에 맞는 종목 없음</span></p>`;
       }
       const d = b.day;
