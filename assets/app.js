@@ -1175,12 +1175,17 @@ function showView(view) {
     loadWatch();
     loadBroker();
   }
-  const hash = view === "krlive" ? "" : `#${view}`;
-  if (location.hash !== hash) history.replaceState(null, "", hash || location.pathname);
+  // 주소는 /watch 처럼 짧게 (첫 화면은 /). 예전 #watch 주소로 들어와도 /watch 로 바꿔 줌
+  const path = view === "krlive" ? "/" : `/${view}`;
+  if (location.pathname !== path || location.hash) history.replaceState(null, "", path + location.search);
 }
 
-// 주소의 # 부분이 바뀌면(뒤로 가기, 주소 직접 입력) 그 탭으로
-window.addEventListener("hashchange", () => showView(location.hash.slice(1) || "krlive"));
+// 지금 주소에서 화면 이름 읽기: /watch → watch, 예전 주소 #watch → watch
+const viewFromUrl = () => location.hash.slice(1) || location.pathname.split("/")[1] || "krlive";
+
+// 예전 # 주소를 직접 입력하거나 뒤로 가기 하면 그 탭으로
+window.addEventListener("hashchange", () => showView(viewFromUrl()));
+window.addEventListener("popstate", () => showView(viewFromUrl()));
 
 document.querySelector(".tabs").addEventListener("click", (e) => {
   const tab = e.target.closest("[data-view]");
@@ -2536,7 +2541,7 @@ account
   });
 
 load();
-showView(location.hash.slice(1) || "krlive");
+showView(viewFromUrl());
 
 // 홈 화면 앱(PWA): 설치와 오프라인 안내용 서비스 워커 (실패해도 사이트는 그대로 동작)
 if ("serviceWorker" in navigator) {

@@ -1,5 +1,13 @@
 {
   "functions": {
-    "api/**/*.js": { "maxDuration": 30 }
-  }
+    "api/**/*.js": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/:view(krlive|themes|top30|briefing|krbriefing|krthemes|limits|ipo|signals|watch)",
+      "destination": "/index.html"
+    }
+  ]
 }

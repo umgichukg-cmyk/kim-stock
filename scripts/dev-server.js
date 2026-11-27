@@ -40,7 +40,8 @@ const server = http.createServer(async (req, res) => {
       console.log(`${res.statusCode} ${url.pathname}${url.search} ${Date.now() - started}ms`);
       return;
     }
-    const path = url.pathname === "/" ? "/index.html" : url.pathname;
+    // /watch 같은 화면 주소는 첫 화면 파일로 (운영의 vercel.json rewrites 와 같게)
+    const path = url.pathname === "/" || /^\/(krlive|themes|top30|briefing|krbriefing|krthemes|limits|ipo|signals|watch)\/?$/.test(url.pathname) ? "/index.html" : url.pathname;
     const file = normalize(join(ROOT, path));
     if (!file.startsWith(normalize(ROOT)) || file.includes(`${normalize("/api/")}`)) throw { code: "ENOENT" };
     const body = await readFile(file);
